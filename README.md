@@ -4,13 +4,26 @@ Learning Artificial Intelligence
 
 ## AI Platforms & Products
 
+### LLM Frameworks
+
 | Category | Name | Description |
 |----------|------|-------------|
 | Orchestration | [LangGraph](https://github.com/langchain-ai/langgraph) | Framework for building stateful, multi-actor applications with LLMs |
 | Orchestration | [LangSmith](https://smith.langchain.com/) | Platform for debugging, testing, and monitoring LLM applications |
-| Model | [Gemini](https://ai.google.dev/gemini) | Google's multimodal AI model that understands text, code, audio, images, and video |
 | Framework | [LangChain](https://langchain.com/) | Framework for developing applications powered by language models |
+
+### LLM Models
+
+| Category | Name | Description |
+|----------|------|-------------|
+| Base Model | [Gemini](https://ai.google.dev/gemini) | Google's multimodal AI model that understands text, code, audio, images, and video |
+
+### Voice Agents
+
+| Category | Name | Description |
+|----------|------|-------------|
 | Voice Agent | [Pipecat](https://pipecat.ai) | Open source framework for voice and multimodal conversational AI. |
+| Text-to-Speech | [Cartesia](https://cartesia.ai/) | The fastest, ultra-realistic voice AI platform. |
 
 ## 🐳 Running Notebooks with Docker
 
