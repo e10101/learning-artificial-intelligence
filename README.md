@@ -25,6 +25,13 @@ Learning Artificial Intelligence
 | Voice Agent | [Pipecat](https://pipecat.ai) | Open source framework for voice and multimodal conversational AI. |
 | Text-to-Speech | [Cartesia](https://cartesia.ai/) | The fastest, ultra-realistic voice AI platform. |
 
+### AI Applications
+
+| Category | Name | Description |
+|----------|------|-------------|
+| Research | [NotebookLM](https://notebooklm.google.com/) | Personalized AI Research Assistant |
+
+
 ## 🐳 Running Notebooks with Docker
 
 This project uses Docker to provide a consistent environment for running Jupyter notebooks. The setup includes:
