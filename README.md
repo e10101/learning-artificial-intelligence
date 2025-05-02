@@ -2,6 +2,16 @@
 
 Learning Artificial Intelligence
 
+## AI Platforms & Products
+
+| Category | Name | Description |
+|----------|------|-------------|
+| Orchestration | [LangGraph](https://github.com/langchain-ai/langgraph) | Framework for building stateful, multi-actor applications with LLMs |
+| Orchestration | [LangSmith](https://smith.langchain.com/) | Platform for debugging, testing, and monitoring LLM applications |
+| Model | [Gemini](https://ai.google.dev/gemini) | Google's multimodal AI model that understands text, code, audio, images, and video |
+| Framework | [LangChain](https://langchain.com/) | Framework for developing applications powered by language models |
+| Voice Agent | [Pipecat](https://pipecat.ai) | Open source framework for voice and multimodal conversational AI. |
+
 ## 🐳 Running Notebooks with Docker
 
 This project uses Docker to provide a consistent environment for running Jupyter notebooks. The setup includes:
