@@ -24,6 +24,7 @@ Learning Artificial Intelligence
 |----------|------|-------------|
 | Voice Agent | [Pipecat](https://pipecat.ai) | Open source framework for voice and multimodal conversational AI. |
 | Text-to-Speech | [Cartesia](https://cartesia.ai/) | The fastest, ultra-realistic voice AI platform. |
+| Visual Agente | [bitHuman](https://www.bithuman.ai/) | Visual agents enriching our lives. |
 
 ### AI Applications
 
