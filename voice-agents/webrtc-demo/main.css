@@ -58,3 +58,21 @@ video {
     background-color: #222;
     border-radius: 4px;
 }
+
+.sdp-container {
+    width: 100%;
+    margin-top: 20px;
+}
+
+.sdp-container h3 {
+    margin-bottom: 10px;
+}
+
+#sdpOffer {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-family: monospace;
+    resize: vertical;
+}
