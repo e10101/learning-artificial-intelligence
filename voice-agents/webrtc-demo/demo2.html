@@ -26,7 +26,7 @@
             margin-top: 20px;
             border: 1px solid #ccc;
             padding: 10px;
-            height: 200px;
+            min-height: 200px;
             overflow-y: auto;
         }
 
@@ -85,12 +85,21 @@
     <div id="connectionStatus" class="status disconnected">Disconnected</div>
 
     <div>
-        <label for="audioSource">Audio input source: </label>
-        <select id="audioSource"></select>
+        <div>
+            Local:
+            <div>
+                <label for="audioSource">Audio input source: </label>
+                <select id="audioSource"></select>
+            </div>
+
+            <audio id="localAudio" controls autoplay muted></audio>
+
+        </div>
+        <div>
+            Remote:
+            <audio id="remoteAudio" controls autoplay muted></audio>
+        </div>
     </div>
-
-    <audio id="localAudio" controls autoplay muted></audio>
-
     <hr>
 
     <div class="zone" id="controlZone">
@@ -121,6 +130,7 @@
 
 <script>
     const localAudio = document.getElementById('localAudio');
+    const remoteAudio = document.getElementById('remoteAudio');
     const audioSource = document.getElementById('audioSource');
     const createOfferBtn = document.getElementById('createOfferBtn');
     const createAnswerBtn = document.getElementById('createAnswerBtn');
@@ -176,8 +186,11 @@
         const content = typeof message === 'object' ? JSON.stringify(message) : message;
         messageElement.textContent = `[${timestamp}] ${content}`;
 
-        messagesContainer.appendChild(messageElement);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        // messagesContainer.appendChild(messageElement);
+        // messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+        messagesContainer.prepend(messageElement); // <-- Changed this line
+        messagesContainer.scrollTop = 0;
     }
 
     // Function to send signaling messages
@@ -309,6 +322,11 @@
         peerConnection.ontrack = (event) => {
             console.log('Track added:', event.track);
             addMessageToList(`Track added: ${event.track.id}`, 'debug');
+
+            if (remoteAudio.srcObject !== event.streams[0]) {
+                remoteAudio.srcObject = event.streams[0];
+                addMessageToList('Remote audio source set', 'debug');
+            }
         }
     }
 
