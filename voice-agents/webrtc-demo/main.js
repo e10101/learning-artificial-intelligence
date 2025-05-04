@@ -28,15 +28,21 @@ const logEvent = (event, data) => {
 
 const startMedia = async () => {
     try {
+        logEvent('Starting media', null);
+
         // Stop any existing stream
         if (localStream) {
             stopMedia();
         }
 
+        logEvent('Starting media', null);
+
         localStream = await navigator.mediaDevices.getUserMedia({
-            video: true,
+            video: false,
             audio: true,
         });
+
+        logEvent('Media started', localStream);
 
         // Display the local stream in the local video element
         if (localVideo) {
@@ -228,7 +234,7 @@ const createOffer = async () => {
 
         // Create an offer
         const offer = await peerConnection.createOffer({
-            offerToReceiveAudio: true,
+            offerToReceiveAudio: false,
             offerToReceiveVideo: true
         });
 
