@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebRTC Demo2</title>
+    <title>WebRTC Demo2 - Local and Remote Audio</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -127,7 +127,8 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>WebRTC Demo2</h1>
+            <h1>WebRTC Demo2 - Audio </h1>
+            <p>Local and Remote Audio</p>
 
             <div>
                 <label for="roomId">Room ID: </label>
@@ -155,7 +156,6 @@
                         </div>
 
                         <div class="audio-container">
-                            <h3>Local Audio</h3>
                             <audio id="localAudio" controls autoplay muted></audio>
                         </div>
 
@@ -167,8 +167,12 @@
                     <div class="column right-column">
                         <div class="column-header">Remote Side</div>
 
+                        <div>
+                            <label for="audioOutput">Audio output device: </label>
+                            <select id="audioOutput"></select>
+                        </div>
+
                         <div class="audio-container">
-                            <h3>Remote Audio</h3>
                             <audio id="remoteAudio" controls autoplay></audio>
                         </div>
 
@@ -191,6 +195,7 @@
     const localAudio = document.getElementById('localAudio');
     const remoteAudio = document.getElementById('remoteAudio');
     const audioSource = document.getElementById('audioSource');
+    const audioOutput = document.getElementById('audioOutput');
     const createOfferBtn = document.getElementById('createOfferBtn');
     const createAnswerBtn = document.getElementById('createAnswerBtn');
     const connectBtn = document.getElementById('connectBtn');
@@ -226,10 +231,18 @@
             zoneContent.classList.remove('zone-disabled');
             zoneStatus.textContent = 'Enabled - Connected to room';
             // addMessageToList('Zone enabled', 'sent');
+
+            // Initially enable both buttons when connected
+            createOfferBtn.disabled = false;
+            createAnswerBtn.disabled = false;
         } else {
             zoneContent.classList.add('zone-disabled');
             zoneStatus.textContent = 'Disabled - Connect to a room first';
             // addMessageToList('Zone disabled', 'sent');
+
+            // Disable both buttons when disconnected
+            createOfferBtn.disabled = true;
+            createAnswerBtn.disabled = true;
         }
     }
 
@@ -307,8 +320,14 @@
             switch (message.type) {
                 case 'offer':
                     receivedOffer = message.value; // Store the offer
-                    // createAnswerBtn.disabled = false; // Enable the create answer button
-                    addMessageToList('Received offer - Create Answer button enabled', 'received');
+
+                    // Disable Create Offer button when we receive an offer
+                    createOfferBtn.disabled = true;
+
+                    // Enable Create Answer button when we receive an offer
+                    createAnswerBtn.disabled = false;
+
+                    addMessageToList('Received offer - Create Answer enabled, Create Offer disabled', 'debug');
                     handleRemoteOffer(message.value);
                     break;
                 case 'answer':
@@ -325,18 +344,26 @@
     async function populateDeviceList() {
         try {
             const devices = await navigator.mediaDevices.enumerateDevices();
-            const audioDevices = devices.filter(device => device.kind === 'audioinput');
+            const audioInputDevices = devices.filter(device => device.kind === 'audioinput');
+            const audioOutputDevices = devices.filter(device => device.kind === 'audiooutput');
 
-            audioSource.innerHTML = audioDevices.map(device =>
+            // Populate input selector
+            audioSource.innerHTML = audioInputDevices.map(device =>
                 `<option value="${device.deviceId}">${device.label || `Microphone ${audioSource.length + 1}`}</option>`
             ).join('');
 
-            // If we have devices, start with the first one
-            if (audioDevices.length > 0) {
-                await startStream(audioDevices[0].deviceId);
+            // Populate output selector
+            audioOutput.innerHTML = audioOutputDevices.map(device =>
+                `<option value="${device.deviceId}">${device.label || `Speaker ${audioOutput.length + 1}`}</option>`
+            ).join('');
+
+            // If we have input devices, start with the first one
+            if (audioInputDevices.length > 0) {
+                await startStream(audioInputDevices[0].deviceId);
             }
         } catch (err) {
             console.error('Error getting devices:', err);
+            addMessageToList(`Error enumerating devices: ${err}`, 'debug');
         }
     }
 
@@ -416,8 +443,14 @@
                 type: 'offer',
                 value: peerConnection.localDescription
             });
+
+            // Disable Create Answer button when we send an offer
+            createAnswerBtn.disabled = true;
+
+            addMessageToList('Offer created and sent - Create Answer disabled', 'debug');
         }).catch(err => {
             console.error('Error creating offer:', err);
+            addMessageToList(`Error creating offer: ${err}`, 'debug');
         });
     }
 
@@ -475,9 +508,30 @@
         }
     }
 
+    // Function to change audio output device
+    async function changeAudioOutput(deviceId) {
+        try {
+            // Check if setSinkId is supported
+            if (typeof remoteAudio.sinkId !== 'undefined') {
+                await remoteAudio.setSinkId(deviceId);
+                addMessageToList(`Audio output changed to: ${deviceId}`, 'debug');
+            } else {
+                addMessageToList('Audio output selection not supported by your browser', 'debug');
+                console.warn('Audio output selection not supported by your browser');
+            }
+        } catch (err) {
+            console.error('Error changing audio output device:', err);
+            addMessageToList(`Error changing audio output: ${err}`, 'debug');
+        }
+    }
+
     // Event Listeners
     audioSource.addEventListener('change', () => {
         startStream(audioSource.value);
+    });
+
+    audioOutput.addEventListener('change', () => {
+        changeAudioOutput(audioOutput.value);
     });
 
     createOfferBtn.addEventListener('click', () => {
@@ -492,7 +546,23 @@
         }
 
         if (!peerConnection) {
-            createPeerConnection();
+            peerConnection = new RTCPeerConnection(configuration);
+
+            if (localStream) {
+                localStream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, localStream);
+                });
+            }
+
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    console.log('ICE candidate:', event.candidate);
+                    sendSignalingMessage({
+                        type: 'candidate',
+                        value: event.candidate
+                    });
+                }
+            }
         }
 
         const offer = new RTCSessionDescription(receivedOffer);
@@ -505,12 +575,16 @@
                     type: 'answer',
                     value: peerConnection.localDescription
                 });
+
+                // Disable the Create Answer button after sending answer
+                createAnswerBtn.disabled = true;
+
+                addMessageToList('Created and sent answer - Create Answer disabled', 'debug');
             })
             .catch(err => {
                 console.error('Error creating answer:', err);
+                addMessageToList(`Error creating answer: ${err}`, 'debug');
             });
-
-        // createAnswerBtn.disabled = true; // Disable the button after sending answer
     });
 
     connectBtn.addEventListener('click', connectToRoom);
