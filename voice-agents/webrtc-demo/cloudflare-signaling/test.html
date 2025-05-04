@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>WebRTC Signaling Server Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        #messages {
+            height: 300px;
+            border: 1px solid #ccc;
+            margin: 10px 0;
+            padding: 10px;
+            overflow-y: auto;
+        }
+
+        .message {
+            margin: 5px 0;
+            padding: 5px;
+            border-radius: 4px;
+        }
+
+        .received {
+            background-color: #e3f2fd;
+        }
+
+        .sent {
+            background-color: #f5f5f5;
+        }
+
+        .error {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+
+        .success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .info {
+            background-color: #fff3e0;
+            color: #e65100;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>WebRTC Signaling Server Test</h1>
+
+    <div>
+        <label for="workerUrl">Worker URL:</label>
+        <input type="text" id="workerUrl" value="sign.tinylink.dev" style="width: 300px;" />
+    </div>
+
+    <div>
+        <label for="roomId">Room ID:</label>
+        <input type="text" id="roomId" value="test-room" />
+        <button onclick="connect()">Connect</button>
+        <button onclick="disconnect()">Disconnect</button>
+    </div>
+
+    <div>
+        <label for="message">Message:</label>
+        <input type="text" id="message" />
+        <button onclick="sendMessage()">Send</button>
+    </div>
+
+    <div>
+        <button onclick="testConnection()">Test HTTP Connection</button>
+    </div>
+
+    <div id="messages"></div>
+
+    <script>
+        let ws = null;
+        const messagesDiv = document.getElementById('messages');
+
+        function log(message, type = '') {
+            const div = document.createElement('div');
+            div.className = `message ${type}`;
+            div.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+            messagesDiv.appendChild(div);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        async function testConnection() {
+            const workerUrl = document.getElementById('workerUrl').value;
+            try {
+                const response = await fetch(`https://${workerUrl}/health`);
+                const text = await response.text();
+                log(`HTTP test response: ${text}`, 'info');
+            } catch (error) {
+                log(`HTTP test failed: ${error.message}`, 'error');
+            }
+        }
+
+        function connect() {
+            const roomId = document.getElementById('roomId').value;
+            const workerUrl = document.getElementById('workerUrl').value;
+
+            if (!roomId) {
+                log('Please enter a room ID', 'error');
+                return;
+            }
+
+            if (!workerUrl) {
+                log('Please enter a worker URL', 'error');
+                return;
+            }
+
+            // Construct WebSocket URL
+            const wsUrl = `wss://${workerUrl}/room/${roomId}`;
+            log(`Connecting to: ${wsUrl}`, 'info');
+
+            try {
+                // First test HTTP connection
+                fetch(`https://${workerUrl}/health`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.text();
+                    })
+                    .then(text => {
+                        log(`Server health check: ${text}`, 'info');
+                        // If HTTP works, try WebSocket
+                        initWebSocket(wsUrl);
+                    })
+                    .catch(error => {
+                        log(`Server health check failed: ${error.message}`, 'error');
+                    });
+            } catch (error) {
+                log(`Connection error: ${error.message || error}`, 'error');
+                console.error('Connection error details:', error);
+            }
+        }
+
+        function initWebSocket(wsUrl) {
+            try {
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = () => {
+                    log('Connected to signaling server', 'success');
+                    // Send a test message
+                    ws.send(JSON.stringify({ type: 'test', message: 'Hello Server!' }));
+                };
+
+                ws.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        log(`Received: ${JSON.stringify(data)}`, 'received');
+                    } catch (e) {
+                        log(`Received: ${event.data}`, 'received');
+                    }
+                };
+
+                ws.onclose = (event) => {
+                    log(`Disconnected: Code=${event.code}, Reason=${event.reason || 'No reason provided'}`, 'error');
+                    console.log('WebSocket close event:', event);
+                    ws = null;
+                };
+
+                ws.onerror = (error) => {
+                    log(`WebSocket error: ${error.type || 'Unknown error'}`, 'error');
+                    console.error('WebSocket error details:', error);
+                    // Log additional connection information
+                    console.log('WebSocket readyState:', ws.readyState);
+                    console.log('WebSocket URL:', wsUrl);
+                };
+            } catch (error) {
+                log(`WebSocket initialization error: ${error.message || error}`, 'error');
+                console.error('WebSocket initialization error details:', error);
+            }
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        }
+
+        function sendMessage() {
+            if (!ws) {
+                log('Not connected to server', 'error');
+                return;
+            }
+
+            const message = document.getElementById('message').value;
+            if (!message) {
+                log('Please enter a message', 'error');
+                return;
+            }
+
+            try {
+                const messageObj = {
+                    type: 'message',
+                    content: message,
+                    timestamp: new Date().toISOString()
+                };
+                ws.send(JSON.stringify(messageObj));
+                log(`Sent: ${JSON.stringify(messageObj)}`, 'sent');
+                document.getElementById('message').value = '';
+            } catch (error) {
+                log(`Send error: ${error.message || error}`, 'error');
+                console.error('Send error details:', error);
+            }
+        }
+
+        // Handle Enter key in message input
+        document.getElementById('message').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+
+</html>

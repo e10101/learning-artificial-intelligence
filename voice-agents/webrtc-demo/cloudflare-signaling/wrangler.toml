@@ -1,0 +1,26 @@
+name = "webrtc-signaling-server"
+main = "index.js" # Entry Worker script
+compatibility_date = "2024-03-21" # Use a recent date
+
+# Custom domain configuration
+routes = [
+  { pattern = "sign.tinylink.dev", custom_domain = true }
+]
+
+# Durable Objects configuration
+[[durable_objects.bindings]]
+name = "SIGNALING_ROOM" # Name to access DO in Worker code (e.g., env.SIGNALING_ROOM)
+class_name = "SignalingRoom" # Class name implementing DO logic
+
+# Define Durable Object migrations (specify which script contains which class)
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["SignalingRoom"]
+
+# Add SQLite-based Durable Objects configuration
+[durable_objects]
+sqlite = true
+
+# wrangler.toml (wrangler v3.88.0^)
+[observability.logs]
+enabled = true
