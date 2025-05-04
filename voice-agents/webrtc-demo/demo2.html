@@ -58,18 +58,30 @@
         }
 
         .sent {
-            background-color: #e3f2fd;
+            background-color: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
             /* text-align: right; */
         }
 
         .received {
-            background-color: #f1f1f1;
+            background-color: #cce5ff;
+            color: #004085;
+            border-left: 4px solid #007bff;
             /* text-align: left; */
         }
 
         .message.debug {
-            background-color: #f3c3c3;
+            background-color: #e2e3e5;
+            color: #383d41;
+            border-left: 4px solid #6c757d;
             /* text-align: left; */
+        }
+
+        .message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
         }
 
         .zone {
@@ -292,7 +304,7 @@
             console.log('WebSocket connected');
             connectionStatus.textContent = 'Connected';
             connectionStatus.className = 'status connected';
-            addMessageToList('Connected to signaling server', 'received');
+            addMessageToList('Connected to signaling server', 'debug');
             setZoneState(true);
         };
 
@@ -300,7 +312,7 @@
             console.log('WebSocket disconnected');
             connectionStatus.textContent = 'Disconnected';
             connectionStatus.className = 'status disconnected';
-            addMessageToList('Disconnected from signaling server', 'received');
+            addMessageToList('Disconnected from signaling server', 'debug');
             setZoneState(false);
         };
 
@@ -308,7 +320,7 @@
             console.error('WebSocket error:', error);
             connectionStatus.textContent = 'Connection Error';
             connectionStatus.className = 'status disconnected';
-            addMessageToList('Connection error: ' + error, 'received');
+            addMessageToList('Connection error: ' + error, 'error');
             setZoneState(false);
         };
 
@@ -363,7 +375,7 @@
             }
         } catch (err) {
             console.error('Error getting devices:', err);
-            addMessageToList(`Error enumerating devices: ${err}`, 'debug');
+            addMessageToList(`Error enumerating devices: ${err}`, 'error');
         }
     }
 
@@ -394,14 +406,14 @@
                             addMessageToList('Audio track replaced successfully', 'debug');
                         })
                         .catch(err => {
-                            addMessageToList(`Error replacing audio track: ${err}`, 'debug');
+                            addMessageToList(`Error replacing audio track: ${err}`, 'error');
                             console.error('Error replacing audio track:', err);
                         });
                 }
             }
         } catch (err) {
             console.error('Error accessing media devices:', err);
-            addMessageToList(`Error accessing media device: ${err}`, 'debug');
+            addMessageToList(`Error accessing media device: ${err}`, 'error');
         }
     }
 
@@ -450,7 +462,7 @@
             addMessageToList('Offer created and sent - Create Answer disabled', 'debug');
         }).catch(err => {
             console.error('Error creating offer:', err);
-            addMessageToList(`Error creating offer: ${err}`, 'debug');
+            addMessageToList(`Error creating offer: ${err}`, 'error');
         });
     }
 
@@ -504,7 +516,7 @@
                     console.error('Error adding ICE candidate:', err);
                 });
         } else {
-            addMessageToList('No peer connection found', 'debug');
+            addMessageToList('No peer connection found', 'error');
         }
     }
 
@@ -521,7 +533,7 @@
             }
         } catch (err) {
             console.error('Error changing audio output device:', err);
-            addMessageToList(`Error changing audio output: ${err}`, 'debug');
+            addMessageToList(`Error changing audio output: ${err}`, 'error');
         }
     }
 
@@ -541,7 +553,7 @@
 
     createAnswerBtn.addEventListener('click', () => {
         if (!receivedOffer) {
-            addMessageToList('No offer received yet', 'sent');
+            addMessageToList('No offer received yet', 'error');
             return;
         }
 
@@ -583,7 +595,7 @@
             })
             .catch(err => {
                 console.error('Error creating answer:', err);
-                addMessageToList(`Error creating answer: ${err}`, 'debug');
+                addMessageToList(`Error creating answer: ${err}`, 'error');
             });
     });
 
