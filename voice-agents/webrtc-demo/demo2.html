@@ -21,6 +21,55 @@
             background-color: #f8d7da;
             color: #721c24;
         }
+
+        #messagesContainer {
+            margin-top: 20px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            height: 200px;
+            overflow-y: auto;
+        }
+
+        .message {
+            margin-bottom: 5px;
+            padding: 5px;
+            border-radius: 4px;
+        }
+
+        .sent {
+            background-color: #e3f2fd;
+            /* text-align: right; */
+        }
+
+        .received {
+            background-color: #f1f1f1;
+            /* text-align: left; */
+        }
+
+        .message.debug {
+            background-color: #f3c3c3;
+            /* text-align: left; */
+        }
+
+        .zone {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+
+        .zone-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .zone-disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
     </style>
 </head>
 
@@ -30,7 +79,7 @@
     <div>
         <label for="roomId">Room ID: </label>
         <input type="text" id="roomId" value="test-room">
-        <button id="connectBtn">Connect to Room</button>
+        <button id="connectBtn">[1] Connect to Room</button>
     </div>
 
     <div id="connectionStatus" class="status disconnected">Disconnected</div>
@@ -44,18 +93,28 @@
 
     <hr>
 
-    <div>
-        <div>
-            <h2>Local Side</h2>
-            <button id="createOfferBtn" disabled>Create offer</button>
-            <textarea id="localOffer" readonly></textarea>
+    <div class="zone" id="controlZone">
+        <div class="zone-header">
+            <div>
+                <span id="zoneStatus">Disabled - Connect to a room first</span>
+            </div>
         </div>
+        <div class="zone-content zone-disabled">
+            <div>
+                <h2>Local Side</h2>
+                <button id="createOfferBtn">[2] Create offer</button>
+            </div>
 
-        <div>
-            <h2>Remote Side</h2>
-            <textarea id="remoteOffer"></textarea>
-            <button id="handleRemoteOfferBtn" disabled>Handle remote offer</button>
+            <div>
+                <h2>Remote Side</h2>
+                <button id="createAnswerBtn">[3] Create answer</button>
+            </div>
         </div>
+    </div>
+
+    <div>
+        <h2>Messages</h2>
+        <div id="messagesContainer"></div>
     </div>
 
 </body>
@@ -64,12 +123,13 @@
     const localAudio = document.getElementById('localAudio');
     const audioSource = document.getElementById('audioSource');
     const createOfferBtn = document.getElementById('createOfferBtn');
-    const handleRemoteOfferBtn = document.getElementById('handleRemoteOfferBtn');
+    const createAnswerBtn = document.getElementById('createAnswerBtn');
     const connectBtn = document.getElementById('connectBtn');
     const roomIdInput = document.getElementById('roomId');
     const connectionStatus = document.getElementById('connectionStatus');
-    const localOffer = document.getElementById('localOffer');
-    const remoteOffer = document.getElementById('remoteOffer');
+    const messagesContainer = document.getElementById('messagesContainer');
+    const controlZone = document.getElementById('controlZone');
+    const zoneStatus = document.getElementById('zoneStatus');
 
     const constraints = {
         audio: true,
@@ -88,11 +148,43 @@
     let localStream;
     let peerConnection;
     let ws;
+    let receivedOffer = null; // Store the received offer
+
+    // Function to toggle the zone based on connection status
+    function setZoneState(enabled) {
+        const zoneContent = controlZone.querySelector('.zone-content');
+        if (enabled) {
+            zoneContent.classList.remove('zone-disabled');
+            zoneStatus.textContent = 'Enabled - Connected to room';
+            // addMessageToList('Zone enabled', 'sent');
+        } else {
+            zoneContent.classList.add('zone-disabled');
+            zoneStatus.textContent = 'Disabled - Connect to a room first';
+            // addMessageToList('Zone disabled', 'sent');
+        }
+    }
+
+    // Function to add message to the messages container
+    function addMessageToList(message, type) {
+        const messageElement = document.createElement('div');
+        messageElement.classList.add('message', type);
+
+        // Add timestamp
+        const timestamp = new Date().toLocaleTimeString();
+
+        // Format the message content
+        const content = typeof message === 'object' ? JSON.stringify(message) : message;
+        messageElement.textContent = `[${timestamp}] ${content}`;
+
+        messagesContainer.appendChild(messageElement);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
 
     // Function to send signaling messages
     function sendSignalingMessage(message) {
         if (ws && ws.readyState === WebSocket.OPEN) {
             console.log('Sending message:', message);
+            addMessageToList(message, 'sent');
             ws.send(JSON.stringify(message));
         } else {
             console.error('WebSocket not connected');
@@ -115,37 +207,43 @@
             console.log('WebSocket connected');
             connectionStatus.textContent = 'Connected';
             connectionStatus.className = 'status connected';
-            createOfferBtn.disabled = false;
-            handleRemoteOfferBtn.disabled = false;
+            addMessageToList('Connected to signaling server', 'received');
+            setZoneState(true);
         };
 
         ws.onclose = () => {
             console.log('WebSocket disconnected');
             connectionStatus.textContent = 'Disconnected';
             connectionStatus.className = 'status disconnected';
-            createOfferBtn.disabled = true;
-            handleRemoteOfferBtn.disabled = true;
+            addMessageToList('Disconnected from signaling server', 'received');
+            setZoneState(false);
         };
 
         ws.onerror = (error) => {
             console.error('WebSocket error:', error);
             connectionStatus.textContent = 'Connection Error';
             connectionStatus.className = 'status disconnected';
+            addMessageToList('Connection error: ' + error, 'received');
+            setZoneState(false);
         };
 
         ws.onmessage = (event) => {
             const message = JSON.parse(event.data);
             console.log('Received message:', message);
+            addMessageToList(message, 'received');
 
             switch (message.type) {
                 case 'offer':
-                    remoteOffer.value = JSON.stringify(message);
+                    receivedOffer = message.value; // Store the offer
+                    // createAnswerBtn.disabled = false; // Enable the create answer button
+                    addMessageToList('Received offer - Create Answer button enabled', 'received');
+                    handleRemoteOffer(message.value);
                     break;
                 case 'answer':
-                    handleRemoteAnswer(message);
+                    handleRemoteAnswer(message.value);
                     break;
                 case 'candidate':
-                    handleRemoteCandidate(message.candidate);
+                    handleRemoteCandidate(message.value);
                     break;
             }
         };
@@ -208,6 +306,13 @@
             }
         }
 
+        peerConnection.ontrack = (event) => {
+            console.log('Track added:', event.track);
+            addMessageToList(`Track added: ${event.track.id}`, 'debug');
+        }
+    }
+
+    function createOffer() {
         peerConnection.createOffer().then(offer => {
             return peerConnection.setLocalDescription(offer);
         }).then(() => {
@@ -221,7 +326,80 @@
     }
 
     function handleRemoteOffer(offerData) {
+        if (!peerConnection) {
+            createPeerConnection();
+        }
+
         const offer = new RTCSessionDescription(offerData);
+        peerConnection
+            .setRemoteDescription(offer);
+        // .then(() => peerConnection.createAnswer())
+        // .then(answer => peerConnection.setLocalDescription(answer))
+        // .then(() => {
+        //     sendSignalingMessage({
+        //         type: 'answer',
+        //         value: peerConnection.localDescription
+        //     });
+        // })
+        // .catch(err => {
+        //     console.error('Error creating answer:', err);
+        // });
+    }
+
+    function handleRemoteAnswer(answerData) {
+        const answer = new RTCSessionDescription(answerData);
+        peerConnection
+            .setRemoteDescription(answer)
+            .then(() => {
+                console.log('Remote description set successfully');
+                addMessageToList('Remote description set successfully', 'debug');
+            })
+            .catch(err => {
+                console.error('Error setting remote description:', err);
+            });
+    }
+
+    function handleRemoteCandidate(candidate) {
+        if (!peerConnection) {
+            createPeerConnection();
+        }
+
+        if (peerConnection) {
+            peerConnection.addIceCandidate(new RTCIceCandidate(candidate))
+                .then(() => {
+                    console.log('ICE candidate added successfully');
+                    addMessageToList(
+                        `ICE candidate added successfully.`, 'debug');
+                })
+                .catch(err => {
+                    console.error('Error adding ICE candidate:', err);
+                });
+        } else {
+            addMessageToList('No peer connection found', 'debug');
+        }
+    }
+
+    // Event Listeners
+    audioSource.addEventListener('change', () => {
+        startStream(audioSource.value);
+    });
+
+    createOfferBtn.addEventListener('click', () => {
+        createPeerConnection();
+        createOffer();
+    });
+
+    createAnswerBtn.addEventListener('click', () => {
+        if (!receivedOffer) {
+            addMessageToList('No offer received yet', 'sent');
+            return;
+        }
+
+        if (!peerConnection) {
+            createPeerConnection();
+        }
+
+        const offer = new RTCSessionDescription(receivedOffer);
         peerConnection
             .setRemoteDescription(offer)
             .then(() => peerConnection.createAnswer())
@@ -235,47 +413,15 @@
             .catch(err => {
                 console.error('Error creating answer:', err);
             });
-    }
 
-    function handleRemoteAnswer(answerData) {
-        const answer = new RTCSessionDescription(answerData);
-        peerConnection
-            .setRemoteDescription(answer)
-            .then(() => console.log('Remote description set successfully'))
-            .catch(err => {
-                console.error('Error setting remote description:', err);
-            });
-    }
-
-    function handleRemoteCandidate(candidate) {
-        peerConnection.addIceCandidate(new RTCIceCandidate(candidate))
-            .catch(err => {
-                console.error('Error adding ICE candidate:', err);
-            });
-    }
-
-    // Event Listeners
-    audioSource.addEventListener('change', () => {
-        startStream(audioSource.value);
-    });
-
-    createOfferBtn.addEventListener('click', () => {
-        createPeerConnection();
-    });
-
-    handleRemoteOfferBtn.addEventListener('click', () => {
-        try {
-            const offerData = JSON.parse(remoteOffer.value);
-            handleRemoteOffer(offerData);
-        } catch (err) {
-            console.error('Error parsing remote offer:', err);
-        }
+        // createAnswerBtn.disabled = true; // Disable the button after sending answer
     });
 
     connectBtn.addEventListener('click', connectToRoom);
 
     // Initial setup
     populateDeviceList();
+    setZoneState(false); // Initially disable the zone
 </script>
 
 </html>
