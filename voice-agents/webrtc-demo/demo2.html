@@ -5,30 +5,151 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WebRTC Demo2</title>
+    <style>
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        .connected {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+    </style>
 </head>
 
 <body>
     <h1>WebRTC Demo2</h1>
 
     <div>
+        <label for="roomId">Room ID: </label>
+        <input type="text" id="roomId" value="test-room">
+        <button id="connectBtn">Connect to Room</button>
+    </div>
+
+    <div id="connectionStatus" class="status disconnected">Disconnected</div>
+
+    <div>
         <label for="audioSource">Audio input source: </label>
         <select id="audioSource"></select>
     </div>
 
-    <audio id="localAudio" controls autoplay></audio>
+    <audio id="localAudio" controls autoplay muted></audio>
+
+    <hr>
+
+    <div>
+        <div>
+            <h2>Local Side</h2>
+            <button id="createOfferBtn" disabled>Create offer</button>
+            <textarea id="localOffer" readonly></textarea>
+        </div>
+
+        <div>
+            <h2>Remote Side</h2>
+            <textarea id="remoteOffer"></textarea>
+            <button id="handleRemoteOfferBtn" disabled>Handle remote offer</button>
+        </div>
+    </div>
 
 </body>
 
 <script>
     const localAudio = document.getElementById('localAudio');
     const audioSource = document.getElementById('audioSource');
+    const createOfferBtn = document.getElementById('createOfferBtn');
+    const handleRemoteOfferBtn = document.getElementById('handleRemoteOfferBtn');
+    const connectBtn = document.getElementById('connectBtn');
+    const roomIdInput = document.getElementById('roomId');
+    const connectionStatus = document.getElementById('connectionStatus');
+    const localOffer = document.getElementById('localOffer');
+    const remoteOffer = document.getElementById('remoteOffer');
 
     const constraints = {
         audio: true,
         video: false
     };
 
+    const configuration = {
+        iceServers: [
+            { urls: 'stun:stun.miwifi.com:3478' },
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+        ]
+    }
+
     let localStream;
+    let peerConnection;
+    let ws;
+
+    // Function to send signaling messages
+    function sendSignalingMessage(message) {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            console.log('Sending message:', message);
+            ws.send(JSON.stringify(message));
+        } else {
+            console.error('WebSocket not connected');
+            connectionStatus.textContent = 'Not connected - message not sent';
+            connectionStatus.className = 'status disconnected';
+        }
+    }
+
+    // WebSocket connection
+    function connectToRoom() {
+        const roomId = roomIdInput.value;
+        if (!roomId) {
+            alert('Please enter a room ID');
+            return;
+        }
+
+        ws = new WebSocket(`wss://sign.tinylink.dev/room/${roomId}`);
+
+        ws.onopen = () => {
+            console.log('WebSocket connected');
+            connectionStatus.textContent = 'Connected';
+            connectionStatus.className = 'status connected';
+            createOfferBtn.disabled = false;
+            handleRemoteOfferBtn.disabled = false;
+        };
+
+        ws.onclose = () => {
+            console.log('WebSocket disconnected');
+            connectionStatus.textContent = 'Disconnected';
+            connectionStatus.className = 'status disconnected';
+            createOfferBtn.disabled = true;
+            handleRemoteOfferBtn.disabled = true;
+        };
+
+        ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+            connectionStatus.textContent = 'Connection Error';
+            connectionStatus.className = 'status disconnected';
+        };
+
+        ws.onmessage = (event) => {
+            const message = JSON.parse(event.data);
+            console.log('Received message:', message);
+
+            switch (message.type) {
+                case 'offer':
+                    remoteOffer.value = JSON.stringify(message);
+                    break;
+                case 'answer':
+                    handleRemoteAnswer(message);
+                    break;
+                case 'candidate':
+                    handleRemoteCandidate(message.candidate);
+                    break;
+            }
+        };
+    }
 
     // Function to populate the device selector
     async function populateDeviceList() {
@@ -68,10 +189,90 @@
         }
     }
 
-    // Handle device selection change
+    function createPeerConnection() {
+        peerConnection = new RTCPeerConnection(configuration);
+
+        if (localStream) {
+            localStream.getTracks().forEach(track => {
+                peerConnection.addTrack(track, localStream);
+            });
+        }
+
+        peerConnection.onicecandidate = (event) => {
+            if (event.candidate) {
+                console.log('ICE candidate:', event.candidate);
+                sendSignalingMessage({
+                    type: 'candidate',
+                    value: event.candidate
+                });
+            }
+        }
+
+        peerConnection.createOffer().then(offer => {
+            return peerConnection.setLocalDescription(offer);
+        }).then(() => {
+            sendSignalingMessage({
+                type: 'offer',
+                value: peerConnection.localDescription
+            });
+        }).catch(err => {
+            console.error('Error creating offer:', err);
+        });
+    }
+
+    function handleRemoteOffer(offerData) {
+        const offer = new RTCSessionDescription(offerData);
+        peerConnection
+            .setRemoteDescription(offer)
+            .then(() => peerConnection.createAnswer())
+            .then(answer => peerConnection.setLocalDescription(answer))
+            .then(() => {
+                sendSignalingMessage({
+                    type: 'answer',
+                    value: peerConnection.localDescription
+                });
+            })
+            .catch(err => {
+                console.error('Error creating answer:', err);
+            });
+    }
+
+    function handleRemoteAnswer(answerData) {
+        const answer = new RTCSessionDescription(answerData);
+        peerConnection
+            .setRemoteDescription(answer)
+            .then(() => console.log('Remote description set successfully'))
+            .catch(err => {
+                console.error('Error setting remote description:', err);
+            });
+    }
+
+    function handleRemoteCandidate(candidate) {
+        peerConnection.addIceCandidate(new RTCIceCandidate(candidate))
+            .catch(err => {
+                console.error('Error adding ICE candidate:', err);
+            });
+    }
+
+    // Event Listeners
     audioSource.addEventListener('change', () => {
         startStream(audioSource.value);
     });
+
+    createOfferBtn.addEventListener('click', () => {
+        createPeerConnection();
+    });
+
+    handleRemoteOfferBtn.addEventListener('click', () => {
+        try {
+            const offerData = JSON.parse(remoteOffer.value);
+            handleRemoteOffer(offerData);
+        } catch (err) {
+            console.error('Error parsing remote offer:', err);
+        }
+    });
+
+    connectBtn.addEventListener('click', connectToRoom);
 
     // Initial setup
     populateDeviceList();
