@@ -58,6 +58,16 @@ video {
     width: 100%;
     background-color: #222;
     border-radius: 4px;
+    min-height: 240px;
+    cursor: pointer;
+}
+
+.video-note {
+    font-size: 12px;
+    color: #666;
+    text-align: center;
+    margin-top: 5px;
+    font-style: italic;
 }
 
 .sdp-container {

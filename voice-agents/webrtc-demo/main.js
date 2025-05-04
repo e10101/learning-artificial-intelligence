@@ -9,8 +9,15 @@ let sdpAnswerTextarea = null;
 const iceServers = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
         { urls: 'stun:stun.miwifi.com:3478' },
         { urls: 'stun:stun.modulus.gr:3478' },
+        {
+            urls: 'turn:numb.viagenie.ca',
+            credential: 'muazkh',
+            username: 'webrtc@live.com'
+        }
     ]
 };
 
@@ -113,6 +120,29 @@ const createPeerConnection = () => {
             if (remoteVideo.srcObject !== event.streams[0]) {
                 remoteVideo.srcObject = event.streams[0];
                 logEvent('Set remote video from ontrack event', event.streams[0]);
+
+                // Add event listeners to monitor remote video status
+                remoteVideo.onloadedmetadata = () => {
+                    logEvent('Remote video metadata loaded', remoteVideo.videoWidth + 'x' + remoteVideo.videoHeight);
+                };
+
+                remoteVideo.onplaying = () => {
+                    logEvent('Remote video started playing', null);
+                };
+
+                // Force play if autoplay doesn't work
+                remoteVideo.play().catch(err => {
+                    logEvent('Remote video play error, might need user interaction', err.message);
+                });
+            }
+        } else {
+            logEvent('Remote track received but missing stream', event.track.kind);
+            // Create a new MediaStream if one wasn't provided
+            if (remoteVideo && event.track) {
+                const stream = new MediaStream();
+                stream.addTrack(event.track);
+                remoteVideo.srcObject = stream;
+                logEvent('Created new MediaStream for remote track', event.track.kind);
             }
         }
     };
@@ -180,6 +210,21 @@ const createOffer = async () => {
         }
 
         logEvent('Creating offer', null);
+
+        // Create an offer with explicit transceivers if supported
+        if (peerConnection.addTransceiver) {
+            try {
+                // Add transceivers to explicitly request audio and video
+                if (!peerConnection.getTransceivers().length) {
+                    logEvent('Adding audio and video transceivers', null);
+                    peerConnection.addTransceiver('audio', { direction: 'sendrecv' });
+                    peerConnection.addTransceiver('video', { direction: 'sendrecv' });
+                }
+            } catch (e) {
+                logEvent('Error adding transceivers', e);
+                // Fall back to createOffer options
+            }
+        }
 
         // Create an offer
         const offer = await peerConnection.createOffer({
@@ -295,10 +340,30 @@ const applyAnswer = async () => {
         await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
         logEvent('Remote answer applied', null);
 
-        // We removed the manual track attachment here as it should be handled by the ontrack event
+        // Add a more aggressive recovery for video display
+        setTimeout(() => {
+            if (remoteVideo && (!remoteVideo.srcObject || remoteVideo.paused)) {
+                logEvent('Attempting recovery for remote video after applying answer', null);
+
+                if (peerConnection.getReceivers) {
+                    const videoReceiver = peerConnection.getReceivers()
+                        .find(receiver => receiver.track && receiver.track.kind === 'video');
+
+                    if (videoReceiver && videoReceiver.track) {
+                        const stream = new MediaStream();
+                        stream.addTrack(videoReceiver.track);
+                        remoteVideo.srcObject = stream;
+                        remoteVideo.play().catch(e => {
+                            logEvent('Recovery play attempt failed, may need user interaction', e);
+                        });
+                        logEvent('Applied recovery: manually set remote video from receiver', stream);
+                    }
+                }
+            }
+        }, 1000);
 
         // Provide user feedback
-        alert('Answer applied. Connection should establish shortly...');
+        alert('Answer applied. Connection should establish shortly... Click on the remote video area if it stays black.');
     } catch (error) {
         console.error('Error applying answer:', error);
         alert('Failed to apply answer: ' + error.message);
@@ -313,6 +378,18 @@ let init = async () => {
     remoteVideo = document.getElementById('remoteVideo');
     sdpOfferTextarea = document.getElementById('sdpOffer');
     sdpAnswerTextarea = document.getElementById('sdpAnswer');
+
+    // Add click handler to remote video to help with autoplay issues
+    if (remoteVideo) {
+        remoteVideo.addEventListener('click', () => {
+            if (remoteVideo.paused) {
+                logEvent('Manual play of remote video attempted', null);
+                remoteVideo.play().catch(err => {
+                    logEvent('Remote video play error after click', err.message);
+                });
+            }
+        });
+    }
 
     // Reset connection status classes
     document.body.classList.remove('connected');
