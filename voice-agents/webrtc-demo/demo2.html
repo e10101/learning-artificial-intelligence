@@ -296,8 +296,27 @@
                 video: false
             });
             localAudio.srcObject = localStream;
+
+            // If we already have an active connection, we need to replace the tracks
+            if (peerConnection && peerConnection.connectionState !== 'closed') {
+                const senders = peerConnection.getSenders();
+                const audioSender = senders.find(sender => sender.track && sender.track.kind === 'audio');
+
+                if (audioSender && localStream.getAudioTracks().length > 0) {
+                    addMessageToList('Replacing audio track in active connection', 'debug');
+                    audioSender.replaceTrack(localStream.getAudioTracks()[0])
+                        .then(() => {
+                            addMessageToList('Audio track replaced successfully', 'debug');
+                        })
+                        .catch(err => {
+                            addMessageToList(`Error replacing audio track: ${err}`, 'debug');
+                            console.error('Error replacing audio track:', err);
+                        });
+                }
+            }
         } catch (err) {
             console.error('Error accessing media devices:', err);
+            addMessageToList(`Error accessing media device: ${err}`, 'debug');
         }
     }
 
