@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC Demo2</title>
+</head>
+
+<body>
+    <h1>WebRTC Demo2</h1>
+
+    <div>
+        <label for="audioSource">Audio input source: </label>
+        <select id="audioSource"></select>
+    </div>
+
+    <audio id="localAudio" controls autoplay></audio>
+
+</body>
+
+<script>
+    const localAudio = document.getElementById('localAudio');
+    const audioSource = document.getElementById('audioSource');
+
+    const constraints = {
+        audio: true,
+        video: false
+    };
+
+    let localStream;
+
+    // Function to populate the device selector
+    async function populateDeviceList() {
+        try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const audioDevices = devices.filter(device => device.kind === 'audioinput');
+
+            audioSource.innerHTML = audioDevices.map(device =>
+                `<option value="${device.deviceId}">${device.label || `Microphone ${audioSource.length + 1}`}</option>`
+            ).join('');
+
+            // If we have devices, start with the first one
+            if (audioDevices.length > 0) {
+                await startStream(audioDevices[0].deviceId);
+            }
+        } catch (err) {
+            console.error('Error getting devices:', err);
+        }
+    }
+
+    // Function to start/restart the stream with selected device
+    async function startStream(deviceId) {
+        // Stop any existing stream
+        if (localStream) {
+            localStream.getTracks().forEach(track => track.stop());
+        }
+
+        // Start new stream with selected device
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({
+                audio: { deviceId: deviceId ? { exact: deviceId } : undefined },
+                video: false
+            });
+            localAudio.srcObject = localStream;
+        } catch (err) {
+            console.error('Error accessing media devices:', err);
+        }
+    }
+
+    // Handle device selection change
+    audioSource.addEventListener('change', () => {
+        startStream(audioSource.value);
+    });
+
+    // Initial setup
+    populateDeviceList();
+</script>
+
+</html>
