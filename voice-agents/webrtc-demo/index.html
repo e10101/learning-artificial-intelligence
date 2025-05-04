@@ -16,6 +16,8 @@
             <button id="startButton">Start</button>
             <button id="stopButton">Stop</button>
             <button id="createOfferButton">Create Offer</button>
+            <button id="createAnswerButton">Create Answer</button>
+            <button id="applyAnswerButton">Apply Answer</button>
         </div>
 
         <div class="video-container">
@@ -30,8 +32,30 @@
         </div>
 
         <div class="sdp-container">
-            <h3>Session Description (SDP Offer)</h3>
-            <textarea id="sdpOffer" readonly rows="5"></textarea>
+            <div class="sdp-row">
+                <div class="sdp-col">
+                    <h3>SDP Offer</h3>
+                    <textarea id="sdpOffer" rows="5"></textarea>
+                </div>
+                <div class="sdp-col">
+                    <h3>SDP Answer</h3>
+                    <textarea id="sdpAnswer" rows="5"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-message success">
+            Connection established successfully! You should see the remote video above.
+        </div>
+
+        <div class="status-message error">
+            Connection failed. This may be due to:
+            <ul>
+                <li>Network restrictions (firewalls, NAT issues)</li>
+                <li>STUN server timeout</li>
+                <li>One or both peers behind symmetric NATs</li>
+            </ul>
+            Try using a different network or consider using a TURN server.
         </div>
     </div>
 </body>

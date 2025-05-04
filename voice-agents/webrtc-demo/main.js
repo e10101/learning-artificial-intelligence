@@ -3,16 +3,29 @@ let localVideo = null;
 let remoteVideo = null;
 let peerConnection = null;
 let sdpOfferTextarea = null;
+let sdpAnswerTextarea = null;
 
 // Configuration for STUN/TURN servers
 const iceServers = {
     iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' }
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun.miwifi.com:3478' },
+        { urls: 'stun:stun.modulus.gr:3478' },
     ]
+};
+
+// Debug the WebRTC connection
+const logEvent = (event, data) => {
+    console.log(`[WebRTC] ${event}:`, data);
 };
 
 const startMedia = async () => {
     try {
+        // Stop any existing stream
+        if (localStream) {
+            stopMedia();
+        }
+
         localStream = await navigator.mediaDevices.getUserMedia({
             video: true,
             audio: true,
@@ -23,10 +36,15 @@ const startMedia = async () => {
             localVideo.srcObject = localStream;
         }
 
-        console.log('Media started', localStream);
+        logEvent('Media started', localStream);
+
+        // Create peer connection after media is started
+        createPeerConnection();
+
         return localStream;
     } catch (error) {
         console.error('Error starting media:', error);
+        alert(`Failed to get media: ${error.message}`);
         throw error;
     }
 };
@@ -47,60 +65,121 @@ const stopMedia = () => {
         localVideo.srcObject = null;
     }
 
+    // Close any existing peer connection
+    if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+    }
+
     localStream = null;
-    console.log('Media stopped');
+    logEvent('Media stopped', null);
 };
 
 const createPeerConnection = () => {
     // Close any existing peer connection
     if (peerConnection) {
         peerConnection.close();
+        peerConnection = null;
     }
+
+    logEvent('Creating peer connection', null);
 
     // Create a new peer connection
     peerConnection = new RTCPeerConnection(iceServers);
 
+    // Debug event handlers
+    peerConnection.addEventListener('negotiationneeded', e => logEvent('negotiationneeded', e));
+    peerConnection.addEventListener('icecandidateerror', e => logEvent('icecandidateerror', e));
+    peerConnection.addEventListener('signalingstatechange', () => logEvent('signalingstatechange', peerConnection.signalingState));
+
     // Add event listeners
     peerConnection.onicecandidate = event => {
         if (event.candidate) {
-            console.log('ICE candidate', event.candidate);
+            logEvent('ICE candidate', event.candidate);
         } else {
-            console.log('ICE gathering complete');
-            // Display the complete SDP offer
-            if (sdpOfferTextarea && peerConnection.localDescription) {
-                sdpOfferTextarea.value = JSON.stringify(peerConnection.localDescription);
+            logEvent('ICE gathering complete', null);
+            // We don't update SDP here anymore to avoid confusion with multiple updates
+        }
+    };
+
+    peerConnection.onicegatheringstatechange = () => {
+        logEvent('ICE gathering state', peerConnection.iceGatheringState);
+    };
+
+    peerConnection.ontrack = event => {
+        logEvent(`Remote track received (${event.track.kind})`, event.streams[0]);
+        if (remoteVideo && event.streams && event.streams[0]) {
+            // Check if it's already set to avoid unnecessary updates
+            if (remoteVideo.srcObject !== event.streams[0]) {
+                remoteVideo.srcObject = event.streams[0];
+                logEvent('Set remote video from ontrack event', event.streams[0]);
             }
         }
     };
 
-    peerConnection.ontrack = event => {
-        console.log('Remote track received', event.streams[0]);
-        if (remoteVideo) {
-            remoteVideo.srcObject = event.streams[0];
+    peerConnection.onconnectionstatechange = () => {
+        logEvent('Connection state change', peerConnection.connectionState);
+
+        if (peerConnection.connectionState === 'connected') {
+            document.body.classList.add('connected');
+            document.body.classList.remove('connection-failed');
+
+            // Check if remote video is playing - this should only be a fallback
+            setTimeout(() => {
+                if (remoteVideo && !remoteVideo.srcObject && peerConnection.getReceivers) {
+                    logEvent('Remote video not playing after connection established - attempting recovery', null);
+                    const videoReceiver = peerConnection.getReceivers()
+                        .find(receiver => receiver.track && receiver.track.kind === 'video');
+
+                    if (videoReceiver) {
+                        const stream = new MediaStream();
+                        stream.addTrack(videoReceiver.track);
+                        remoteVideo.srcObject = stream;
+                        logEvent('Recovery: manually set remote video', stream);
+                    }
+                }
+            }, 1000);
+        } else if (peerConnection.connectionState === 'failed' || peerConnection.connectionState === 'disconnected') {
+            document.body.classList.remove('connected');
+            document.body.classList.add('connection-failed');
+        } else {
+            document.body.classList.remove('connected');
+            document.body.classList.remove('connection-failed');
         }
+    };
+
+    peerConnection.oniceconnectionstatechange = () => {
+        logEvent('ICE connection state change', peerConnection.iceConnectionState);
     };
 
     // Add local tracks to the peer connection
     if (localStream) {
         localStream.getTracks().forEach(track => {
+            logEvent('Adding local track', track.kind);
             peerConnection.addTrack(track, localStream);
         });
     } else {
-        console.warn('No local stream available to add to peer connection');
+        logEvent('No local stream available to add to peer connection', null);
     }
 
     return peerConnection;
 };
 
 const createOffer = async () => {
-    if (!localStream) {
-        alert('Please start media before creating an offer');
-        return;
-    }
-
     try {
-        // Ensure we have a peer connection
-        createPeerConnection();
+        if (!localStream) {
+            alert('Please start media before creating an offer');
+            return;
+        }
+
+        // We don't recreate the peer connection here anymore
+        // We assume it was created during startMedia
+        if (!peerConnection) {
+            logEvent('No peer connection, creating one', null);
+            createPeerConnection();
+        }
+
+        logEvent('Creating offer', null);
 
         // Create an offer
         const offer = await peerConnection.createOffer({
@@ -108,15 +187,15 @@ const createOffer = async () => {
             offerToReceiveVideo: true
         });
 
+        logEvent('Offer created', offer);
+
         // Set local description
         await peerConnection.setLocalDescription(offer);
+        logEvent('Local description set', peerConnection.localDescription);
 
-        console.log('Offer created', offer);
-
-        // The complete SDP will be set in the onicecandidate callback when ice gathering is complete
-        // But we can show the initial offer now
+        // Display the offer immediately after setting local description
         if (sdpOfferTextarea) {
-            sdpOfferTextarea.value = JSON.stringify(offer);
+            sdpOfferTextarea.value = JSON.stringify(peerConnection.localDescription);
         }
     } catch (error) {
         console.error('Error creating offer:', error);
@@ -124,32 +203,151 @@ const createOffer = async () => {
     }
 };
 
+const createAnswer = async () => {
+    try {
+        if (!localStream) {
+            alert('Please start media before creating an answer');
+            return;
+        }
+
+        // Get the offer from the textarea
+        const offerText = sdpOfferTextarea.value.trim();
+        if (!offerText) {
+            alert('Please paste an SDP offer first');
+            return;
+        }
+
+        let offer;
+        try {
+            offer = JSON.parse(offerText);
+        } catch (e) {
+            alert('Invalid SDP format. Please paste a valid JSON SDP offer.');
+            return;
+        }
+
+        // We'll reuse the existing peer connection or create a new one if needed
+        if (!peerConnection) {
+            logEvent('No peer connection, creating one', null);
+            createPeerConnection();
+        } else {
+            // Reset the connection to start fresh
+            logEvent('Resetting peer connection for answer', null);
+            createPeerConnection();
+        }
+
+        logEvent('Setting remote description (offer)', offer);
+
+        // Set the remote description (offer)
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+        logEvent('Remote description set', offer);
+
+        // Create an answer
+        logEvent('Creating answer', null);
+        const answer = await peerConnection.createAnswer();
+        logEvent('Answer created', answer);
+
+        // Set local description (answer)
+        await peerConnection.setLocalDescription(answer);
+        logEvent('Local description set', answer);
+
+        // Display the answer immediately after setting local description
+        if (sdpAnswerTextarea) {
+            sdpAnswerTextarea.value = JSON.stringify(peerConnection.localDescription);
+        }
+    } catch (error) {
+        console.error('Error creating answer:', error);
+        alert('Failed to create answer: ' + error.message);
+    }
+};
+
+const applyAnswer = async () => {
+    try {
+        if (!peerConnection) {
+            alert('Please create an offer first before applying an answer');
+            return;
+        }
+
+        // Get the answer from the textarea
+        const answerText = sdpAnswerTextarea.value.trim();
+        if (!answerText) {
+            alert('Please paste an SDP answer first');
+            return;
+        }
+
+        let answer;
+        try {
+            answer = JSON.parse(answerText);
+        } catch (e) {
+            alert('Invalid SDP format. Please paste a valid JSON SDP answer.');
+            return;
+        }
+
+        // Check peer connection state
+        if (peerConnection.signalingState !== 'have-local-offer') {
+            logEvent('Invalid signaling state', peerConnection.signalingState);
+            alert(`Peer connection is in an invalid state: ${peerConnection.signalingState}. Expected 'have-local-offer'.`);
+            return;
+        }
+
+        logEvent('Setting remote description (answer)', answer);
+
+        // Set the remote description (answer)
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+        logEvent('Remote answer applied', null);
+
+        // We removed the manual track attachment here as it should be handled by the ontrack event
+
+        // Provide user feedback
+        alert('Answer applied. Connection should establish shortly...');
+    } catch (error) {
+        console.error('Error applying answer:', error);
+        alert('Failed to apply answer: ' + error.message);
+    }
+};
+
 let init = async () => {
-    console.log("init");
+    logEvent('Initializing', null);
 
     // Get references to video elements and other UI
     localVideo = document.getElementById('localVideo');
     remoteVideo = document.getElementById('remoteVideo');
     sdpOfferTextarea = document.getElementById('sdpOffer');
+    sdpAnswerTextarea = document.getElementById('sdpAnswer');
+
+    // Reset connection status classes
+    document.body.classList.remove('connected');
+    document.body.classList.remove('connection-failed');
 
     // Connect buttons to functions
     const startButton = document.getElementById('startButton');
     const stopButton = document.getElementById('stopButton');
     const createOfferButton = document.getElementById('createOfferButton');
+    const createAnswerButton = document.getElementById('createAnswerButton');
+    const applyAnswerButton = document.getElementById('applyAnswerButton');
 
     startButton.addEventListener('click', async () => {
-        console.log('Start button clicked');
+        logEvent('Start button clicked', null);
         await startMedia();
     });
 
     stopButton.addEventListener('click', () => {
-        console.log('Stop button clicked');
+        logEvent('Stop button clicked', null);
         stopMedia();
     });
 
     createOfferButton.addEventListener('click', async () => {
-        console.log('Create offer button clicked');
+        logEvent('Create offer button clicked', null);
         await createOffer();
+    });
+
+    createAnswerButton.addEventListener('click', async () => {
+        logEvent('Create answer button clicked', null);
+        await createAnswer();
+    });
+
+    applyAnswerButton.addEventListener('click', async () => {
+        logEvent('Apply answer button clicked', null);
+        await applyAnswer();
     });
 }
 

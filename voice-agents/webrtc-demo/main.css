@@ -46,6 +46,7 @@ button:hover {
     border-radius: 8px;
     padding: 10px;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    position: relative;
 }
 
 .video-box h2 {
@@ -64,15 +65,70 @@ video {
     margin-top: 20px;
 }
 
+.sdp-row {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.sdp-col {
+    width: 48%;
+}
+
 .sdp-container h3 {
     margin-bottom: 10px;
 }
 
-#sdpOffer {
+#sdpOffer,
+#sdpAnswer {
     width: 100%;
     padding: 10px;
     border: 1px solid #ccc;
     border-radius: 4px;
     font-family: monospace;
     resize: vertical;
+}
+
+/* Connection status indicators */
+.connected .video-box {
+    border-color: #4CAF50;
+    box-shadow: 0 0 15px rgba(76, 175, 80, 0.5);
+}
+
+.connected h1:after {
+    content: " - Connected";
+    color: #4CAF50;
+}
+
+/* Connection failed state */
+.connection-failed .video-box {
+    border-color: #f44336;
+    box-shadow: 0 0 15px rgba(244, 67, 54, 0.5);
+}
+
+.connection-failed h1:after {
+    content: " - Connection Failed";
+    color: #f44336;
+}
+
+/* Status message at the bottom */
+.status-message {
+    margin-top: 20px;
+    padding: 10px;
+    border-radius: 4px;
+    text-align: center;
+    background-color: #f8f8f8;
+    display: none;
+}
+
+.connected .status-message.success {
+    display: block;
+    background-color: #e8f5e9;
+    color: #4CAF50;
+}
+
+.connection-failed .status-message.error {
+    display: block;
+    background-color: #ffebee;
+    color: #f44336;
 }
