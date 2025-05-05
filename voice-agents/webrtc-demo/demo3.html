@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC Demo3 - Audio and Video</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        .connected {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        #messagesContainer {
+            margin-top: 20px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            min-height: 200px;
+            overflow-y: auto;
+        }
+
+        .message {
+            margin-bottom: 5px;
+            padding: 5px;
+            border-radius: 4px;
+        }
+
+        .sent {
+            background-color: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+            /* text-align: right; */
+        }
+
+        .received {
+            background-color: #cce5ff;
+            color: #004085;
+            border-left: 4px solid #007bff;
+            /* text-align: left; */
+        }
+
+        .message.debug {
+            background-color: #e2e3e5;
+            color: #383d41;
+            border-left: 4px solid #6c757d;
+            /* text-align: left; */
+        }
+
+        .message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+
+        .zone {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+
+        .zone-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .zone-disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .two-column-layout {
+            display: flex;
+            margin-top: 20px;
+        }
+
+        .column {
+            flex: 1;
+            padding: 15px;
+        }
+
+        .left-column {
+            border-right: 1px solid #ccc;
+        }
+
+        .right-column {
+            border-left: 1px solid #ccc;
+            margin-left: -1px;
+            /* Prevents double border */
+        }
+
+        .column-header {
+            text-align: center;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+
+        .audio-container,
+        .video-container {
+            margin: 15px 0;
+        }
+
+        video {
+            width: 100%;
+            max-width: 320px;
+            background-color: #000;
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>WebRTC Demo3 - Audio and Video</h1>
+            <p>Local and Remote Audio/Video Communication</p>
+
+            <div>
+                <label for="roomId">Room ID: </label>
+                <input type="text" id="roomId" value="test-room">
+                <button id="connectBtn">[1] Connect to Room</button>
+            </div>
+
+            <div id="connectionStatus" class="status disconnected">Disconnected</div>
+        </div>
+
+        <div class="zone" id="controlZone">
+            <div class="zone-header">
+                <div>
+                    <span id="zoneStatus">Disabled - Connect to a room first</span>
+                </div>
+            </div>
+            <div class="zone-content zone-disabled">
+                <div class="two-column-layout">
+                    <div class="column left-column">
+                        <div class="column-header">Local Side</div>
+
+                        <div>
+                            <label for="audioSource">Audio input source: </label>
+                            <select id="audioSource"></select>
+                        </div>
+
+                        <div>
+                            <label for="videoSource">Video input source: </label>
+                            <select id="videoSource"></select>
+                        </div>
+
+                        <div class="audio-container">
+                            <audio id="localAudio" controls autoplay muted></audio>
+                        </div>
+
+                        <div class="video-container">
+                            <video id="localVideo" autoplay muted playsinline></video>
+                        </div>
+
+                        <div>
+                            <button id="createOfferBtn">[2] Create offer</button>
+                        </div>
+                    </div>
+
+                    <div class="column right-column">
+                        <div class="column-header">Remote Side</div>
+
+                        <div>
+                            <label for="audioOutput">Audio output device: </label>
+                            <select id="audioOutput"></select>
+                        </div>
+
+                        <div class="audio-container">
+                            <audio id="remoteAudio" controls autoplay></audio>
+                        </div>
+
+                        <div class="video-container">
+                            <video id="remoteVideo" autoplay playsinline></video>
+                        </div>
+
+                        <div>
+                            <button id="createAnswerBtn">[3] Create answer</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <h2>Messages</h2>
+            <div id="messagesContainer"></div>
+        </div>
+    </div>
+</body>
+
+<script>
+    const localAudio = document.getElementById('localAudio');
+    const remoteAudio = document.getElementById('remoteAudio');
+    const localVideo = document.getElementById('localVideo');
+    const remoteVideo = document.getElementById('remoteVideo');
+    const audioSource = document.getElementById('audioSource');
+    const audioOutput = document.getElementById('audioOutput');
+    const videoSource = document.getElementById('videoSource');
+    const createOfferBtn = document.getElementById('createOfferBtn');
+    const createAnswerBtn = document.getElementById('createAnswerBtn');
+    const connectBtn = document.getElementById('connectBtn');
+    const roomIdInput = document.getElementById('roomId');
+    const connectionStatus = document.getElementById('connectionStatus');
+    const messagesContainer = document.getElementById('messagesContainer');
+    const controlZone = document.getElementById('controlZone');
+    const zoneStatus = document.getElementById('zoneStatus');
+
+    const constraints = {
+        audio: true,
+        video: true
+    };
+
+    const configuration = {
+        iceServers: [
+            { urls: 'stun:stun.miwifi.com:3478' },
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+        ]
+    }
+
+    let localStream;
+    let peerConnection;
+    let ws;
+    let receivedOffer = null; // Store the received offer
+
+    // Function to toggle the zone based on connection status
+    function setZoneState(enabled) {
+        const zoneContent = controlZone.querySelector('.zone-content');
+        if (enabled) {
+            zoneContent.classList.remove('zone-disabled');
+            zoneStatus.textContent = 'Enabled - Connected to room';
+            // addMessageToList('Zone enabled', 'sent');
+
+            // Initially enable both buttons when connected
+            createOfferBtn.disabled = false;
+            createAnswerBtn.disabled = false;
+        } else {
+            zoneContent.classList.add('zone-disabled');
+            zoneStatus.textContent = 'Disabled - Connect to a room first';
+            // addMessageToList('Zone disabled', 'sent');
+
+            // Disable both buttons when disconnected
+            createOfferBtn.disabled = true;
+            createAnswerBtn.disabled = true;
+        }
+    }
+
+    // Function to add message to the messages container
+    function addMessageToList(message, type) {
+        const messageElement = document.createElement('div');
+        messageElement.classList.add('message', type);
+
+        // Add timestamp
+        const timestamp = new Date().toLocaleTimeString();
+
+        // Format the message content
+        const content = typeof message === 'object' ? JSON.stringify(message) : message;
+        messageElement.textContent = `[${timestamp}] ${content}`;
+
+        // messagesContainer.appendChild(messageElement);
+        // messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+        messagesContainer.prepend(messageElement); // <-- Changed this line
+        messagesContainer.scrollTop = 0;
+    }
+
+    // Function to send signaling messages
+    function sendSignalingMessage(message) {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            console.log('Sending message:', message);
+            addMessageToList(message, 'sent');
+            ws.send(JSON.stringify(message));
+        } else {
+            console.error('WebSocket not connected');
+            connectionStatus.textContent = 'Not connected - message not sent';
+            connectionStatus.className = 'status disconnected';
+        }
+    }
+
+    // WebSocket connection
+    function connectToRoom() {
+        const roomId = roomIdInput.value;
+        if (!roomId) {
+            alert('Please enter a room ID');
+            return;
+        }
+
+        ws = new WebSocket(`wss://sign.tinylink.dev/room/${roomId}`);
+
+        ws.onopen = () => {
+            console.log('WebSocket connected');
+            connectionStatus.textContent = 'Connected';
+            connectionStatus.className = 'status connected';
+            addMessageToList('Connected to signaling server', 'debug');
+            setZoneState(true);
+        };
+
+        ws.onclose = () => {
+            console.log('WebSocket disconnected');
+            connectionStatus.textContent = 'Disconnected';
+            connectionStatus.className = 'status disconnected';
+            addMessageToList('Disconnected from signaling server', 'debug');
+            setZoneState(false);
+        };
+
+        ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+            connectionStatus.textContent = 'Connection Error';
+            connectionStatus.className = 'status disconnected';
+            addMessageToList('Connection error: ' + error, 'error');
+            setZoneState(false);
+        };
+
+        ws.onmessage = (event) => {
+            const message = JSON.parse(event.data);
+            console.log('Received message:', message);
+            addMessageToList(message, 'received');
+
+            switch (message.type) {
+                case 'offer':
+                    receivedOffer = message.value; // Store the offer
+
+                    // Disable Create Offer button when we receive an offer
+                    createOfferBtn.disabled = true;
+
+                    // Enable Create Answer button when we receive an offer
+                    createAnswerBtn.disabled = false;
+
+                    addMessageToList('Received offer - Create Answer enabled, Create Offer disabled', 'debug');
+                    handleRemoteOffer(message.value);
+                    break;
+                case 'answer':
+                    handleRemoteAnswer(message.value);
+                    break;
+                case 'candidate':
+                    handleRemoteCandidate(message.value);
+                    break;
+            }
+        };
+    }
+
+    // Function to populate the device selector
+    async function populateDeviceList() {
+        try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const audioInputDevices = devices.filter(device => device.kind === 'audioinput');
+            const audioOutputDevices = devices.filter(device => device.kind === 'audiooutput');
+            const videoInputDevices = devices.filter(device => device.kind === 'videoinput');
+
+            // Populate video input selector
+            videoSource.innerHTML = videoInputDevices.map(device =>
+                `<option value="${device.deviceId}">${device.label || `Camera ${videoSource.length + 1}`}</option>`
+            ).join('');
+
+            // Populate audio input selector
+            audioSource.innerHTML = audioInputDevices.map(device =>
+                `<option value="${device.deviceId}">${device.label || `Microphone ${audioSource.length + 1}`}</option>`
+            ).join('');
+
+            // Populate output selector
+            audioOutput.innerHTML = audioOutputDevices.map(device =>
+                `<option value="${device.deviceId}">${device.label || `Speaker ${audioOutput.length + 1}`}</option>`
+            ).join('');
+
+            // If we have input devices, start with the first one
+            if (audioInputDevices.length > 0 && videoInputDevices.length > 0) {
+                await startStream(audioInputDevices[0].deviceId, videoInputDevices[0].deviceId);
+            }
+        } catch (err) {
+            console.error('Error getting devices:', err);
+            addMessageToList(`Error enumerating devices: ${err}`, 'error');
+        }
+    }
+
+    // Function to start/restart the stream with selected device
+    async function startStream(audioDeviceId, videoDeviceId) {
+        // Stop any existing stream
+        if (localStream) {
+            localStream.getTracks().forEach(track => track.stop());
+        }
+
+        // Start new stream with selected devices
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({
+                audio: { deviceId: audioDeviceId ? { exact: audioDeviceId } : undefined },
+                video: { deviceId: videoDeviceId ? { exact: videoDeviceId } : undefined }
+            });
+            localAudio.srcObject = localStream;
+            localVideo.srcObject = localStream;
+
+            // If we already have an active connection, we need to replace the tracks
+            if (peerConnection && peerConnection.connectionState !== 'closed') {
+                const senders = peerConnection.getSenders();
+
+                // Replace audio track
+                const audioSender = senders.find(sender => sender.track && sender.track.kind === 'audio');
+                if (audioSender && localStream.getAudioTracks().length > 0) {
+                    addMessageToList('Replacing audio track in active connection', 'debug');
+                    audioSender.replaceTrack(localStream.getAudioTracks()[0])
+                        .then(() => {
+                            addMessageToList('Audio track replaced successfully', 'debug');
+                        })
+                        .catch(err => {
+                            addMessageToList(`Error replacing audio track: ${err}`, 'error');
+                            console.error('Error replacing audio track:', err);
+                        });
+                }
+
+                // Replace video track
+                const videoSender = senders.find(sender => sender.track && sender.track.kind === 'video');
+                if (videoSender && localStream.getVideoTracks().length > 0) {
+                    addMessageToList('Replacing video track in active connection', 'debug');
+                    videoSender.replaceTrack(localStream.getVideoTracks()[0])
+                        .then(() => {
+                            addMessageToList('Video track replaced successfully', 'debug');
+                        })
+                        .catch(err => {
+                            addMessageToList(`Error replacing video track: ${err}`, 'error');
+                            console.error('Error replacing video track:', err);
+                        });
+                }
+            }
+        } catch (err) {
+            console.error('Error accessing media devices:', err);
+            addMessageToList(`Error accessing media device: ${err}`, 'error');
+        }
+    }
+
+    function createPeerConnection() {
+        peerConnection = new RTCPeerConnection(configuration);
+
+        if (localStream) {
+            localStream.getTracks().forEach(track => {
+                peerConnection.addTrack(track, localStream);
+            });
+        }
+
+        peerConnection.onicecandidate = (event) => {
+            if (event.candidate) {
+                console.log('ICE candidate:', event.candidate);
+                sendSignalingMessage({
+                    type: 'candidate',
+                    value: event.candidate
+                });
+            }
+        }
+
+        peerConnection.ontrack = (event) => {
+            console.log('Track added:', event.track);
+            addMessageToList(`Track added: ${event.track.id}`, 'debug');
+
+            if (event.track.kind === 'audio') {
+                if (remoteAudio.srcObject !== event.streams[0]) {
+                    remoteAudio.srcObject = event.streams[0];
+                    addMessageToList('Remote audio source set', 'debug');
+                }
+            } else if (event.track.kind === 'video') {
+                if (remoteVideo.srcObject !== event.streams[0]) {
+                    remoteVideo.srcObject = event.streams[0];
+                    addMessageToList('Remote video source set', 'debug');
+                }
+            }
+        }
+    }
+
+    function createOffer() {
+        peerConnection.createOffer().then(offer => {
+            return peerConnection.setLocalDescription(offer);
+        }).then(() => {
+            sendSignalingMessage({
+                type: 'offer',
+                value: peerConnection.localDescription
+            });
+
+            // Disable Create Answer button when we send an offer
+            createAnswerBtn.disabled = true;
+
+            addMessageToList('Offer created and sent - Create Answer disabled', 'debug');
+        }).catch(err => {
+            console.error('Error creating offer:', err);
+            addMessageToList(`Error creating offer: ${err}`, 'error');
+        });
+    }
+
+    function handleRemoteOffer(offerData) {
+        if (!peerConnection) {
+            createPeerConnection();
+        }
+
+        const offer = new RTCSessionDescription(offerData);
+        peerConnection
+            .setRemoteDescription(offer);
+        // .then(() => peerConnection.createAnswer())
+        // .then(answer => peerConnection.setLocalDescription(answer))
+        // .then(() => {
+        //     sendSignalingMessage({
+        //         type: 'answer',
+        //         value: peerConnection.localDescription
+        //     });
+        // })
+        // .catch(err => {
+        //     console.error('Error creating answer:', err);
+        // });
+    }
+
+    function handleRemoteAnswer(answerData) {
+        const answer = new RTCSessionDescription(answerData);
+        peerConnection
+            .setRemoteDescription(answer)
+            .then(() => {
+                console.log('Remote description set successfully');
+                addMessageToList('Remote description set successfully', 'debug');
+            })
+            .catch(err => {
+                console.error('Error setting remote description:', err);
+            });
+    }
+
+    function handleRemoteCandidate(candidate) {
+        if (!peerConnection) {
+            createPeerConnection();
+        }
+
+        if (peerConnection) {
+            peerConnection.addIceCandidate(new RTCIceCandidate(candidate))
+                .then(() => {
+                    console.log('ICE candidate added successfully');
+                    addMessageToList(
+                        `ICE candidate added successfully.`, 'debug');
+                })
+                .catch(err => {
+                    console.error('Error adding ICE candidate:', err);
+                });
+        } else {
+            addMessageToList('No peer connection found', 'error');
+        }
+    }
+
+    // Function to change audio output device
+    async function changeAudioOutput(deviceId) {
+        try {
+            // Check if setSinkId is supported
+            if (typeof remoteAudio.sinkId !== 'undefined') {
+                await remoteAudio.setSinkId(deviceId);
+                addMessageToList(`Audio output changed to: ${deviceId}`, 'debug');
+            } else {
+                addMessageToList('Audio output selection not supported by your browser', 'debug');
+                console.warn('Audio output selection not supported by your browser');
+            }
+        } catch (err) {
+            console.error('Error changing audio output device:', err);
+            addMessageToList(`Error changing audio output: ${err}`, 'error');
+        }
+    }
+
+    // Event Listeners
+    audioSource.addEventListener('change', () => {
+        startStream(audioSource.value, videoSource.value);
+    });
+
+    videoSource.addEventListener('change', () => {
+        startStream(audioSource.value, videoSource.value);
+    });
+
+    audioOutput.addEventListener('change', () => {
+        changeAudioOutput(audioOutput.value);
+    });
+
+    createOfferBtn.addEventListener('click', () => {
+        createPeerConnection();
+        createOffer();
+    });
+
+    createAnswerBtn.addEventListener('click', () => {
+        if (!receivedOffer) {
+            addMessageToList('No offer received yet', 'error');
+            return;
+        }
+
+        if (!peerConnection) {
+            peerConnection = new RTCPeerConnection(configuration);
+
+            if (localStream) {
+                localStream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, localStream);
+                });
+            }
+
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    console.log('ICE candidate:', event.candidate);
+                    sendSignalingMessage({
+                        type: 'candidate',
+                        value: event.candidate
+                    });
+                }
+            }
+        }
+
+        const offer = new RTCSessionDescription(receivedOffer);
+        peerConnection
+            .setRemoteDescription(offer)
+            .then(() => peerConnection.createAnswer())
+            .then(answer => peerConnection.setLocalDescription(answer))
+            .then(() => {
+                sendSignalingMessage({
+                    type: 'answer',
+                    value: peerConnection.localDescription
+                });
+
+                // Disable the Create Answer button after sending answer
+                createAnswerBtn.disabled = true;
+
+                addMessageToList('Created and sent answer - Create Answer disabled', 'debug');
+            })
+            .catch(err => {
+                console.error('Error creating answer:', err);
+                addMessageToList(`Error creating answer: ${err}`, 'error');
+            });
+    });
+
+    connectBtn.addEventListener('click', connectToRoom);
+
+    // Initial setup
+    populateDeviceList();
+    setZoneState(false); // Initially disable the zone
+</script>
+
+</html>
