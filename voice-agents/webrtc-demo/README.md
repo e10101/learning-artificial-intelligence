@@ -8,6 +8,13 @@
 
 ## Demo about Data Channel
 
+Steps
+
+- Create `RTCPeerConnection`
+- `createDataChannel`
+- `createOffer`
+- `createAnswer`
+
 ### Make Connection First
 
 In the A client Chrome console, create offer:
