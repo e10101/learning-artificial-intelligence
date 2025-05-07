@@ -23,15 +23,16 @@ Learning Artificial Intelligence
 | Category | Name | Description |
 |----------|------|-------------|
 | Voice Agent | [Pipecat](https://pipecat.ai) | Open source framework for voice and multimodal conversational AI. |
+| Voice Agent | [LiveKit](https://livekit.io/) | The all-in-one Voice AI platform Build, deploy, and scale realtime agents. Open source. Enterprise scale. |
 | Text-to-Speech | [Cartesia](https://cartesia.ai/) | The fastest, ultra-realistic voice AI platform. |
 | Visual Agente | [bitHuman](https://www.bithuman.ai/) | Visual agents enriching our lives. |
+| Real-time Comms | [WebRTC](https://webrtc.org/) | Open-source project that provides web browsers and mobile applications with real-time communication capabilities. |
 
 ### AI Applications
 
 | Category | Name | Description |
 |----------|------|-------------|
 | Research | [NotebookLM](https://notebooklm.google.com/) | Personalized AI Research Assistant |
-
 
 ## 🐳 Running Notebooks with Docker
 
