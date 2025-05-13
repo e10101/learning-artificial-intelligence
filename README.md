@@ -12,6 +12,7 @@ Learning Artificial Intelligence
 | Orchestration | [LangSmith](https://smith.langchain.com/) | Platform for debugging, testing, and monitoring LLM applications |
 | Framework | [LangChain](https://langchain.com/) | Framework for developing applications powered by language models |
 | Framework | [DSPy](https://dspy.ai/) | Declarative framework for building modular AI software with natural-language modules |
+| Security | [promptfoo](https://www.promptfoo.dev/) | Open-source LLM security tool for red teaming, guardrails, and model security |
 
 ### LLM Models
 
