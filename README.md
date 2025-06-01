@@ -36,6 +36,12 @@ Learning Artificial Intelligence
 |----------|------|-------------|
 | Research | [NotebookLM](https://notebooklm.google.com/) | Personalized AI Research Assistant |
 
+### DevOps & Kubernetes
+
+| Category | Name | Description |
+|----------|------|-------------|
+| Autoscaling | [KEDA](https://keda.sh/) | Kubernetes Event-driven Autoscaling enables scale of any container based on the number of events needing to be processed |
+
 ## 🐳 Running Notebooks with Docker
 
 This project uses Docker to provide a consistent environment for running Jupyter notebooks. The setup includes:
