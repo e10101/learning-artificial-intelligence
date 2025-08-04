@@ -44,9 +44,19 @@ Learning Artificial Intelligence
 
 ## 🐳 Running Notebooks with Docker
 
-This project uses Docker to provide a consistent environment for running Jupyter notebooks. The setup includes:
+This project provides Docker setups for running Jupyter notebooks with different environments. Choose the setup that best fits your needs:
 
+### Standard Scientific Python Environment
+
+The default setup includes:
 - Jupyter Lab with scientific Python packages pre-installed
+
+### PyTorch Environment
+
+For deep learning and PyTorch development:
+- Jupyter Lab with PyTorch and related packages pre-installed
+- GPU support (if available)
+- Optimized for machine learning workflows
 
 ### Prerequisites
 
@@ -55,23 +65,31 @@ This project uses Docker to provide a consistent environment for running Jupyter
 
 ### Quick Start
 
-1. Start the services:
+#### Standard Environment
+
+1. Start the standard services:
 
    ```bash
    docker-compose up
    ```
 
-2. Access the services in your browser:
+2. Access Jupyter Lab: `http://localhost:58888` (token: `jupyter`)
 
-   - Jupyter Lab: `http://localhost:58888` (token: `jupyter`)
+#### PyTorch Environment
 
-3. You'll find the notebooks in the mounted directories:
-   - Jupyter: `/home/jovyan/work`
+1. Start the PyTorch services:
+
+   ```bash
+   docker-compose -f docker-compose-pytorch.yml up
+   ```
+
+2. Access Jupyter Lab: `http://localhost:48888` (token: `jupyter`)
 
 ### Features
 
-- Jupyter Lab interface for both services
+- Jupyter Lab interface for both environments
 - Scientific Python stack pre-installed
+- PyTorch environment includes deep learning libraries
 - Automatic volume mounting (changes are saved to your local files)
 - Persistent workspace
 
@@ -80,5 +98,9 @@ This project uses Docker to provide a consistent environment for running Jupyter
 To stop the server, press `Ctrl+C` in the terminal or run:
 
 ```bash
+# For standard environment
 docker-compose down
+
+# For PyTorch environment
+docker-compose -f docker-compose-pytorch.yml down
 ```
