@@ -78,8 +78,9 @@ sudo make -j$(nproc)
 # Install Asterisk
 sudo make install
 
-# Install sample configuration files
-sudo make samples
+# Install configuration files (choose one)
+sudo make basic-pbx   # Minimal configs for a working PBX (recommended)
+# sudo make samples   # All sample configs with extensive comments
 
 # Install init scripts for systemd
 sudo make config
@@ -87,7 +88,7 @@ sudo make config
 
 > **Tip:** `make menuselect` opens a TUI where you can enable/disable specific modules (codecs, channel drivers, applications). For a basic setup, the defaults work fine.
 
-> **Note:** `make samples` is required. It installs base config files (`asterisk.conf`, `modules.conf`, etc.) into `/etc/asterisk/` that Asterisk needs to start. Without them, the service will fail to launch and the configuration steps below will not work. Be careful running it again later, as it will overwrite your customized configs.
+> **Note:** Either `make basic-pbx` or `make samples` is required. They install base config files (`asterisk.conf`, `modules.conf`, etc.) into `/etc/asterisk/` that Asterisk needs to start. Without them, the service will fail to launch and the configuration steps below will not work. `make basic-pbx` is recommended as it provides a cleaner starting point with minimal configs. Use `make samples` if you want comprehensive reference configs for all modules. Be careful running either again later, as they will overwrite your customized configs.
 
 ## Step 6: Create Asterisk User
 
