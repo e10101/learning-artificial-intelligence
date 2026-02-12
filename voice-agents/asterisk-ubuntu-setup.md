@@ -154,7 +154,7 @@ callerid="User 1001" <1001>
 type=auth
 auth_type=userpass
 username=1001
-password=changeme1001
+password=demo1001pass
 
 [1001]
 type=aor
@@ -171,7 +171,7 @@ callerid="User 1002" <1002>
 type=auth
 auth_type=userpass
 username=1002
-password=changeme1002
+password=demo1002pass
 
 [1002]
 type=aor
