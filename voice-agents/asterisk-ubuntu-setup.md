@@ -124,7 +124,7 @@ sudo sed -i 's/;rungroup = asterisk/rungroup = asterisk/' /etc/asterisk/asterisk
 Asterisk uses **PJSIP** as the modern SIP channel driver. Edit the configuration:
 
 ```bash
-sudo nano /etc/asterisk/pjsip.conf
+sudo vim /etc/asterisk/pjsip.conf
 ```
 
 Replace or append the following:
@@ -186,7 +186,7 @@ This creates two SIP endpoints (`1001` and `1002`) that can register and make ca
 Edit the extensions configuration:
 
 ```bash
-sudo nano /etc/asterisk/extensions.conf
+sudo vim /etc/asterisk/extensions.conf
 ```
 
 Add the following context at the bottom:
