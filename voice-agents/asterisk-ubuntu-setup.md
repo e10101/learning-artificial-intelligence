@@ -205,6 +205,11 @@ exten => 9999,1,Answer()
  same => n,Echo()
  same => n,Hangup()
 
+; Tone test - dial 7777 to hear a 1000Hz test tone
+exten => 7777,1,Answer()
+ same => n,Milliwatt()
+ same => n,Hangup()
+
 ; Playback test - dial 8888 to hear a greeting
 exten => 8888,1,Answer()
  same => n,Playback(hello-world)
@@ -214,6 +219,7 @@ exten => 8888,1,Answer()
 **What this does:**
 - Dialing `1001` or `1002` rings the corresponding SIP phone.
 - Dialing `9999` starts an echo test (you hear your own voice played back).
+- Dialing `7777` plays a standard 1000Hz test tone (the classic phone beep).
 - Dialing `8888` plays a "Hello World" greeting.
 
 ## Step 9: Start Asterisk
