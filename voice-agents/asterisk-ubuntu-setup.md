@@ -141,6 +141,7 @@ bind=0.0.0.0:5060
 type=endpoint
 use_avpf=yes
 rtcp_mux=yes
+ice_support=yes
 context=internal
 disallow=all
 allow=ulaw
