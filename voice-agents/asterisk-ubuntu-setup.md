@@ -184,7 +184,29 @@ remove_existing=yes
 
 This creates two SIP endpoints (`1001` and `1002`) that can register and make calls.
 
-## Step 8: Configure the Dialplan
+## Step 8: Configure RTP Port Range
+
+Asterisk selects RTP (media) ports dynamically for each call. By default, if `/etc/asterisk/rtp.conf` does not exist, Asterisk may pick ports **outside your firewall's allowed range** — which silently drops incoming media and causes **no audio** even when everything else looks correct.
+
+Create the file:
+
+```bash
+sudo vi /etc/asterisk/rtp.conf
+```
+
+Add the following:
+
+```ini
+[general]
+rtpstart=10000
+rtpend=20000
+```
+
+This pins all RTP ports to the `10000–20000` range, which must match your firewall and cloud security group rules (configured in Step 12).
+
+> **Why this matters:** Without this file, Asterisk may bind RTP to ports like `6880` or `22594`, which fall outside a typical `10000–20000` firewall rule. The client's RTP packets are then blocked by the firewall, so `rtp_symmetric=yes` never learns the client's real NAT address, and audio fails silently in both directions.
+
+## Step 9: Configure the Dialplan
 
 Edit the extensions configuration:
 
@@ -232,7 +254,7 @@ exten => 8888,1,Answer()
 - Dialing `7777` plays a sequence of test tones (400Hz, 800Hz, 1000Hz, 1400Hz) for 3 seconds each.
 - Dialing `8888` plays a "Hello World" greeting.
 
-## Step 9: Start Asterisk
+## Step 10: Start Asterisk
 
 ```bash
 # Enable Asterisk to start at boot
@@ -247,7 +269,7 @@ sudo systemctl status asterisk
 
 You should see `active (running)`.
 
-## Step 10: Verify the Setup
+## Step 11: Verify the Setup
 
 Connect to the Asterisk CLI:
 
@@ -266,7 +288,7 @@ quit
 
 You should see your endpoints `1001` and `1002` listed.
 
-## Step 11: Configure Firewall
+## Step 12: Configure Firewall
 
 If you have `ufw` enabled, allow SIP and RTP traffic:
 
@@ -274,14 +296,14 @@ If you have `ufw` enabled, allow SIP and RTP traffic:
 # SIP signaling
 sudo ufw allow 5060/udp
 
-# RTP media (default range)
+# RTP media (must match the range in rtp.conf)
 sudo ufw allow 10000:20000/udp
 
 # Reload firewall
 sudo ufw reload
 ```
 
-## Step 12: Verify Ports
+## Step 13: Verify Ports
 
 After starting Asterisk, verify that the SIP port is listening:
 
@@ -303,7 +325,7 @@ You can also test connectivity from another machine:
 nc -zuv <server_ip> 5060
 ```
 
-## Step 13: Test with a Softphone
+## Step 14: Test with a Softphone
 
 Register a SIP softphone to your Asterisk server with these settings:
 
@@ -352,6 +374,7 @@ external_media_address=<your_public_ip>
 external_signaling_address=<your_public_ip>
 local_net=192.168.0.0/16
 local_net=10.0.0.0/8
+local_net=172.16.0.0/12
 ```
 
 ### Permission denied errors
@@ -424,6 +447,7 @@ bind=0.0.0.0:5060
 external_media_address=203.0.113.50
 external_signaling_address=203.0.113.50
 local_net=10.0.0.0/8
+local_net=172.16.0.0/12
 ```
 
 This tells Asterisk to substitute the public IP in SDP and Contact headers when communicating with endpoints outside the `local_net` range.
