@@ -377,6 +377,121 @@ Ensure both the endpoint config and your softphone support the same codecs (`ula
 | `module show` | List all loaded modules |
 | `sip set debug on` | Enable SIP debug logging |
 
+## Running on a Public Cloud VM
+
+When running Asterisk on a public cloud VM (e.g., Tencent Cloud, AWS, GCP, Azure), the VM typically has a **private IP** internally
+and a **public IP** mapped via NAT by the cloud provider. This causes signaling and media failures because Asterisk
+advertises the private IP in SIP headers and SDP, which is unreachable from the internet.
+
+### The Problem
+
+Without NAT configuration, Asterisk will:
+
+1. Put the **private IP** in the SIP `Contact` header (e.g., `Contact: <sip:10.5.0.6:5060>`) — the client cannot send ACK or subsequent requests back to this address.
+2. Put the **private IP** in the SDP `c=` line and ICE candidates (e.g., `c=IN IP4 10.5.0.6`) — RTP media has nowhere to go.
+3. Fail STUN requests if no STUN server is reachable, producing errors like: `Error sending STUN request: Network is unreachable`.
+4. Retransmit the `200 OK` repeatedly (because no ACK arrives), then disconnect with `408 Request Timeout`.
+
+The result: SIP registration may work, calls may appear to connect, but there will be **no audio** and calls will **time out**.
+
+### The Fix: Configure NAT in pjsip.conf
+
+Find your VM's public IP. You can check it from the cloud console or run:
+
+```bash
+curl -s ifconfig.me
+```
+
+Then update the transport section in `/etc/asterisk/pjsip.conf`:
+
+```ini
+[transport-udp]
+type=transport
+protocol=udp
+bind=0.0.0.0:5060
+external_media_address=<your_public_ip>
+external_signaling_address=<your_public_ip>
+local_net=<your_vpc_cidr>
+```
+
+For example, if your public IP is `203.0.113.50` and your VPC uses `10.0.0.0/8`:
+
+```ini
+[transport-udp]
+type=transport
+protocol=udp
+bind=0.0.0.0:5060
+external_media_address=203.0.113.50
+external_signaling_address=203.0.113.50
+local_net=10.0.0.0/8
+```
+
+This tells Asterisk to substitute the public IP in SDP and Contact headers when communicating with endpoints outside the `local_net` range.
+
+### Update the Endpoint Template
+
+The default endpoint template uses `ice_support=yes`, but ICE does not work on cloud VMs because:
+
+1. **Asterisk can't discover its public IP via STUN** — it only advertises private IP candidates (`10.5.0.6`), which are unreachable from the internet.
+2. **Clients behind carrier-grade NAT (CGNAT)** may have different public IPs for STUN-discovered addresses vs. actual RTP traffic, causing ICE candidate mismatches.
+
+The fix is to **disable ICE** and use **symmetric RTP** instead. Update the endpoint template in `/etc/asterisk/pjsip.conf`:
+
+```ini
+; === Endpoint Template ===
+[endpoint-template](!)
+type=endpoint
+use_avpf=yes
+rtcp_mux=yes
+ice_support=no
+context=internal
+disallow=all
+allow=ulaw
+allow=alaw
+rtp_symmetric=yes
+force_rport=yes
+rewrite_contact=yes
+```
+
+What the new options do:
+
+- **`ice_support=no`** — Disables ICE, which cannot work without a reachable STUN server on the cloud VM.
+- **`rtp_symmetric=yes`** — Sends RTP back to the address Asterisk actually *receives* RTP from, instead of the (potentially wrong) address in the client's SDP.
+- **`force_rport=yes`** — Uses the actual source port from SIP requests for responses, handling NAT for signaling.
+- **`rewrite_contact=yes`** — Rewrites the SIP Contact header with the client's actual source address.
+
+After updating, reload the configuration:
+
+```bash
+sudo asterisk -rx 'core reload'
+```
+
+### Cloud Security Group Rules
+
+In addition to the OS-level firewall (`ufw`), you must also open ports in the **cloud provider's security group** (or equivalent).
+Add these **inbound rules**:
+
+| Protocol | Port Range    | Source      | Description     |
+| -------- | ------------- | ----------- | --------------- |
+| UDP      | 5060          | 0.0.0.0/0   | SIP signaling   |
+| UDP      | 10000-20000   | 0.0.0.0/0   | RTP media       |
+
+> **Tip:** Restrict the source IP/CIDR if you know which networks your softphones will connect from.
+
+### Verifying the Fix
+
+After applying the NAT configuration, connect to the Asterisk CLI and enable SIP debug:
+
+```bash
+sudo asterisk -rvvv
+```
+
+Make a test call (e.g., dial `9999` for the echo test) and verify that:
+
+1. The `200 OK` response contains your **public IP** in the `Contact` header and SDP `c=` line.
+2. The client sends an ACK (no repeated 200 OK retransmissions).
+3. Audio works in both directions.
+
 ## References
 
 - [Asterisk Official Website](https://www.asterisk.org/)
