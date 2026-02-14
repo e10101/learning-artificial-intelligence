@@ -31,18 +31,7 @@ set up basic SIP extensions, and test calls between two softphones.
 sudo apt update && sudo apt upgrade -y
 ```
 
-## Step 2: Install Dependencies
-
-Asterisk requires several development libraries and tools to compile from source:
-
-```bash
-sudo apt install -y build-essential git curl wget libedit-dev \
-  uuid-dev libjansson-dev libxml2-dev libsqlite3-dev \
-  libssl-dev libncurses5-dev libsrtp2-dev \
-  pkg-config autoconf libtool
-```
-
-## Step 3: Download Asterisk Source
+## Step 2: Download Asterisk Source
 
 Download the latest LTS version. As of this writing, **Asterisk 22 LTS** is the recommended version:
 
@@ -55,7 +44,7 @@ cd asterisk-22.*/
 
 > **Note:** Check the latest version at [downloads.asterisk.org](https://downloads.asterisk.org/pub/telephony/asterisk/).
 
-## Step 4: Install Prerequisites Script
+## Step 3: Install Prerequisites Script
 
 Asterisk ships with a script that installs additional system prerequisites:
 
@@ -63,7 +52,7 @@ Asterisk ships with a script that installs additional system prerequisites:
 sudo contrib/scripts/install_prereq install
 ```
 
-## Step 5: Compile and Install
+## Step 4: Compile and Install
 
 ```bash
 # Configure the build
@@ -82,6 +71,9 @@ sudo make install
 sudo make basic-pbx   # Minimal configs for a working PBX (recommended)
 # sudo make samples   # All sample configs with extensive comments
 
+# Copy indications.conf (needed for the Playtones() dialplan application)
+sudo cp configs/samples/indications.conf.sample /etc/asterisk/indications.conf
+
 # Install init scripts for systemd
 sudo make config
 ```
@@ -90,7 +82,9 @@ sudo make config
 
 > **Note:** Either `make basic-pbx` or `make samples` is required. They install base config files (`asterisk.conf`, `modules.conf`, etc.) into `/etc/asterisk/` that Asterisk needs to start. Without them, the service will fail to launch and the configuration steps below will not work. `make basic-pbx` is recommended as it provides a cleaner starting point with minimal configs. Use `make samples` if you want comprehensive reference configs for all modules. Be careful running either again later, as they will overwrite your customized configs.
 
-## Step 6: Create Asterisk User
+> **Note:** `make basic-pbx` does not include `indications.conf`, which is required by the `res_indications` module. Without it, the `Playtones()` dialplan application will not be available and calls to extensions using it (like the `7777` tone test) will fail with `No application 'Playtones'`. The `cp` command above copies the sample file to fix this.
+
+## Step 5: Create Asterisk User
 
 For security, run Asterisk as a non-root user:
 
@@ -119,7 +113,7 @@ sudo sed -i 's/;runuser = asterisk/runuser = asterisk/' /etc/asterisk/asterisk.c
 sudo sed -i 's/;rungroup = asterisk/rungroup = asterisk/' /etc/asterisk/asterisk.conf
 ```
 
-## Step 7: Configure PJSIP (SIP Endpoints)
+## Step 6: Configure PJSIP (SIP Endpoints)
 
 Asterisk uses **PJSIP** as the modern SIP channel driver. Edit the configuration:
 
@@ -184,7 +178,7 @@ remove_existing=yes
 
 This creates two SIP endpoints (`1001` and `1002`) that can register and make calls.
 
-## Step 8: Configure RTP Port Range
+## Step 7: Configure RTP Port Range
 
 Asterisk selects RTP (media) ports dynamically for each call. By default, if `/etc/asterisk/rtp.conf` does not exist, Asterisk may pick ports **outside your firewall's allowed range** — which silently drops incoming media and causes **no audio** even when everything else looks correct.
 
@@ -202,11 +196,11 @@ rtpstart=10000
 rtpend=20000
 ```
 
-This pins all RTP ports to the `10000–20000` range, which must match your firewall and cloud security group rules (configured in Step 12).
+This pins all RTP ports to the `10000–20000` range, which must match your firewall and cloud security group rules (configured in Step 11).
 
 > **Why this matters:** Without this file, Asterisk may bind RTP to ports like `6880` or `22594`, which fall outside a typical `10000–20000` firewall rule. The client's RTP packets are then blocked by the firewall, so `rtp_symmetric=yes` never learns the client's real NAT address, and audio fails silently in both directions.
 
-## Step 9: Configure the Dialplan
+## Step 8: Configure the Dialplan
 
 Edit the extensions configuration:
 
@@ -254,7 +248,7 @@ exten => 8888,1,Answer()
 - Dialing `7777` plays a sequence of test tones (400Hz, 800Hz, 1000Hz, 1400Hz) for 3 seconds each.
 - Dialing `8888` plays a "Hello World" greeting.
 
-## Step 10: Start Asterisk
+## Step 9: Start Asterisk
 
 ```bash
 # Enable Asterisk to start at boot
@@ -269,7 +263,7 @@ sudo systemctl status asterisk
 
 You should see `active (running)`.
 
-## Step 11: Verify the Setup
+## Step 10: Verify the Setup
 
 Connect to the Asterisk CLI:
 
@@ -288,7 +282,7 @@ quit
 
 You should see your endpoints `1001` and `1002` listed.
 
-## Step 12: Configure Firewall
+## Step 11: Configure Firewall
 
 If you have `ufw` enabled, allow SIP and RTP traffic:
 
@@ -303,7 +297,7 @@ sudo ufw allow 10000:20000/udp
 sudo ufw reload
 ```
 
-## Step 13: Verify Ports
+## Step 12: Verify Ports
 
 After starting Asterisk, verify that the SIP port is listening:
 
@@ -325,7 +319,7 @@ You can also test connectivity from another machine:
 nc -zuv <server_ip> 5060
 ```
 
-## Step 14: Test with a Softphone
+## Step 13: Test with a Softphone
 
 Register a SIP softphone to your Asterisk server with these settings:
 
