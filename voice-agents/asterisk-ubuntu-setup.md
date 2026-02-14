@@ -248,7 +248,29 @@ exten => 8888,1,Answer()
 - Dialing `7777` plays a sequence of test tones (400Hz, 800Hz, 1000Hz, 1400Hz) for 3 seconds each.
 - Dialing `8888` plays a "Hello World" greeting.
 
-## Step 9: Start Asterisk
+## Step 9: Configure Logging
+
+By default, `make basic-pbx` may not enable file-based logging, which means `/var/log/asterisk/messages` won't be created. This file is needed for troubleshooting and for fail2ban to detect SIP brute-force attempts.
+
+Edit the logger configuration:
+
+```bash
+sudo vi /etc/asterisk/logger.conf
+```
+
+Ensure it contains:
+
+```ini
+[general]
+
+[logfiles]
+messages => notice,warning,error
+console => verbose,notice,warning,error
+```
+
+> **Note:** If you change this file after Asterisk is already running, reload the logger with: `sudo asterisk -rx 'logger reload'`
+
+## Step 10: Start Asterisk
 
 ```bash
 # Enable Asterisk to start at boot
@@ -263,7 +285,7 @@ sudo systemctl status asterisk
 
 You should see `active (running)`.
 
-## Step 10: Verify the Setup
+## Step 11: Verify the Setup
 
 Connect to the Asterisk CLI:
 
@@ -282,7 +304,7 @@ quit
 
 You should see your endpoints `1001` and `1002` listed.
 
-## Step 11: Configure Firewall
+## Step 12: Configure Firewall
 
 If you have `ufw` enabled, allow SIP and RTP traffic:
 
@@ -297,7 +319,7 @@ sudo ufw allow 10000:20000/udp
 sudo ufw reload
 ```
 
-## Step 12: Verify Ports
+## Step 13: Verify Ports
 
 After starting Asterisk, verify that the SIP port is listening:
 
@@ -319,7 +341,7 @@ You can also test connectivity from another machine:
 nc -zuv <server_ip> 5060
 ```
 
-## Step 13: Test with a Softphone
+## Step 14: Test with a Softphone
 
 Register a SIP softphone to your Asterisk server with these settings:
 
@@ -509,6 +531,90 @@ Make a test call (e.g., dial `9999` for the echo test) and verify that:
 1. The `200 OK` response contains your **public IP** in the `Contact` header and SDP `c=` line.
 2. The client sends an ACK (no repeated 200 OK retransmissions).
 3. Audio works in both directions.
+
+## Security: Blocking SIP Scanners with fail2ban
+
+Any SIP server exposed on the public internet will be targeted by automated scanners trying to register with random usernames and brute-force passwords. You'll see log entries like:
+
+```
+NOTICE: Request 'REGISTER' from '"9435" <sip:9435@your.server.ip>' failed for '206.221.176.151:5106' - No matching endpoint found
+NOTICE: Request 'REGISTER' from '"9435" <sip:9435@your.server.ip>' failed for '206.221.176.151:5106' - Failed to authenticate
+```
+
+While Asterisk correctly rejects these, the volume can be overwhelming. **fail2ban** monitors log files and automatically bans offending IPs via the firewall after repeated failures.
+
+### Install fail2ban
+
+```bash
+sudo apt install fail2ban -y
+```
+
+### Create the Asterisk Filter
+
+Create a filter that matches PJSIP authentication failures:
+
+```bash
+sudo vi /etc/fail2ban/filter.d/asterisk-pjsip.conf
+```
+
+Add the following:
+
+```ini
+[Definition]
+failregex = Request '.*' from '.*' failed for '<HOST>(:\d+)?' \(callid: .*\) - No matching endpoint found
+            Request '.*' from '.*' failed for '<HOST>(:\d+)?' \(callid: .*\) - Failed to authenticate
+ignoreregex =
+```
+
+### Create the Jail
+
+```bash
+sudo vi /etc/fail2ban/jail.d/asterisk.conf
+```
+
+Add the following:
+
+```ini
+[asterisk-pjsip]
+enabled  = true
+filter   = asterisk-pjsip
+logpath  = /var/log/asterisk/messages
+backend  = auto
+maxretry = 3
+findtime = 600
+bantime  = 86400
+banaction = iptables-allports
+protocol = all
+```
+
+This bans an IP for **24 hours** (`86400` seconds) after **3 failed attempts** within **10 minutes** (`600` seconds). Adjust these values as needed.
+
+> **Note:** If you use `ufw`, change `banaction` to `ufw`. You can check with `sudo ufw status` — if it says "active", use `ufw`; otherwise `iptables-multiport` is the safe default.
+
+### Start and Enable fail2ban
+
+```bash
+sudo systemctl enable fail2ban
+sudo systemctl restart fail2ban
+```
+
+### Verify It's Working
+
+```bash
+# Check jail status
+sudo fail2ban-client status asterisk-pjsip
+
+# See banned IPs
+sudo fail2ban-client status asterisk-pjsip | grep "Banned IP"
+
+# Manually unban an IP if needed
+sudo fail2ban-client set asterisk-pjsip unbanip <ip_address>
+
+# Test the filter against your log file
+sudo fail2ban-regex /var/log/asterisk/messages /etc/fail2ban/filter.d/asterisk-pjsip.conf
+```
+
+After a few minutes, you should see the scanning IPs getting banned automatically.
 
 ## References
 
