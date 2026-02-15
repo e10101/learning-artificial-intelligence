@@ -74,6 +74,9 @@ sudo make basic-pbx   # Minimal configs for a working PBX (recommended)
 # Copy indications.conf (needed for the Playtones() dialplan application)
 sudo cp configs/samples/indications.conf.sample /etc/asterisk/indications.conf
 
+# Enable autoloading of all modules (make basic-pbx sets autoload=no)
+sudo sed -i 's/autoload=no/autoload=yes/' /etc/asterisk/modules.conf
+
 # Install init scripts for systemd
 sudo make config
 ```
@@ -82,7 +85,7 @@ sudo make config
 
 > **Note:** Either `make basic-pbx` or `make samples` is required. They install base config files (`asterisk.conf`, `modules.conf`, etc.) into `/etc/asterisk/` that Asterisk needs to start. Without them, the service will fail to launch and the configuration steps below will not work. `make basic-pbx` is recommended as it provides a cleaner starting point with minimal configs. Use `make samples` if you want comprehensive reference configs for all modules. Be careful running either again later, as they will overwrite your customized configs.
 
-> **Note:** `make basic-pbx` does not include `indications.conf`, which is required by the `res_indications` module. Without it, the `Playtones()` dialplan application will not be available and calls to extensions using it (like the `7777` tone test) will fail with `No application 'Playtones'`. The `cp` command above copies the sample file to fix this.
+> **Note:** `make basic-pbx` does not include `indications.conf`, and sets `autoload=no` in `modules.conf` with an explicit module list that does not include `res_indications`. Both issues must be fixed for `Playtones()` to work: the `cp` command copies the sample indications config, and the `sed` command switches `modules.conf` to `autoload=yes` so that all available modules (including `res_indications`) are loaded automatically. Without these fixes, the `7777` tone test will fail with `No application 'Playtones'`.
 
 ## Step 5: Create Asterisk User
 
