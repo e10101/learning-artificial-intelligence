@@ -13,7 +13,7 @@
 
 The **Asterisk Manager Interface (AMI)** is a TCP-based API that allows external programs to control and monitor Asterisk in real time. Through AMI, you can originate calls, monitor channels, reload configuration, and receive events — all programmatically.
 
-AMI is the foundation for building custom dashboards, call center panels, auto-dialers, and integrations with external systems. It uses a simple text-based protocol over TCP (default port **5038**), making it easy to interact with using telnet, netcat, or any programming language with socket support.
+AMI is the foundation for building custom dashboards, call center panels, auto-dialers, and integrations with external systems. It uses a simple text-based protocol over TCP (default port **5038**), making it easy to interact with using `nc` (netcat) or any programming language with socket support.
 
 This guide covers enabling AMI, connecting to it, sending basic actions, and understanding the events Asterisk sends back.
 
@@ -21,7 +21,7 @@ This guide covers enabling AMI, connecting to it, sending basic actions, and und
 
 - A working Asterisk installation (see [Ubuntu Setup](ubuntu-setup.md))
 - Root or sudo access on the Asterisk server
-- `telnet` or `netcat` (`nc`) installed for testing
+- `nc` (netcat) installed for testing
 
 ## Step 1: Introduction to AMI Concepts
 
@@ -105,18 +105,18 @@ You should see output like:
 LISTEN 0  10  127.0.0.1:5038  0.0.0.0:*  users:(("asterisk",pid=...,fd=...))
 ```
 
-## Step 4: Connect to AMI via Telnet
+## Step 4: Connect to AMI via Netcat
 
 From your client, open a connection to AMI on the Ubuntu server:
 
 ```bash
-telnet <server_ip> 5038
+nc <server_ip> 5038
 ```
 
 For example, if your Ubuntu server is at `192.168.1.100`:
 
 ```bash
-telnet 192.168.1.100 5038
+nc 192.168.1.100 5038
 ```
 
 You should see a banner like:
@@ -126,8 +126,6 @@ Asterisk Call Manager/10.0.0
 ```
 
 This confirms AMI is running and accepting connections. You can now type actions directly.
-
-> **Tip:** You can also use `nc` (netcat): `nc 192.168.1.100 5038`
 
 > **Note:** If the connection is refused, verify the firewall allows port 5038 (see Step 10) and that `bindaddr = 0.0.0.0` is set in `manager.conf`.
 
@@ -280,10 +278,10 @@ One of AMI's most powerful features is **real-time event streaming**. Once logge
 
 You'll need two things running at the same time:
 
-1. **Terminal on your client** — AMI session via telnet (already connected and logged in from Steps 4–5)
+1. **Terminal on your client** — AMI session via `nc` (already connected and logged in from Steps 4–5)
 2. **A SIP softphone on your client** — registered to the Asterisk server as extension `1001` (see [Ubuntu Setup — Step 14](ubuntu-setup.md#step-14-test-with-a-softphone))
 
-Keep the telnet session open and visible. Events will appear automatically as you perform actions on the softphone.
+Keep the `nc` session open and visible. Events will appear automatically as you perform actions on the softphone.
 
 ### Demo 1: SIP Registration Events
 
@@ -367,7 +365,7 @@ Cause: 16
 Cause-txt: Normal Clearing
 ```
 
-> **Try it:** While the call is active, you can also send `Action: CoreShowChannels` in the same telnet session to see the live channels. Events and responses are interleaved in the same stream.
+> **Try it:** While the call is active, you can also send `Action: CoreShowChannels` in the same `nc` session to see the live channels. Events and responses are interleaved in the same stream.
 
 ### Demo 3: Echo Test Events
 
