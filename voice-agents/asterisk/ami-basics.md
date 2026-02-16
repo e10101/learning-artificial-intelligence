@@ -562,6 +562,7 @@ However, if your server is on a **cloud provider** (AWS, GCP, Tencent Cloud, etc
 | ------ | ----------- |
 | `Login` | Authenticate with AMI |
 | `Logoff` | Disconnect from AMI |
+| `Events` | Enable/disable event flow or filter event types (default: enabled after login) |
 | `CoreStatus` | Get system status (uptime, active calls) |
 | `CoreSettings` | Get Asterisk version and build info |
 | `CoreShowChannels` | List all active channels |
