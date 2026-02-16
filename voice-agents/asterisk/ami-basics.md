@@ -304,6 +304,36 @@ CoreProcessedCalls: 1
 
 One of AMI's most powerful features is **real-time event streaming**. Once logged in, events flow continuously into your terminal as things happen on the Asterisk server. Let's see this in action.
 
+### How Event Streaming Works
+
+**Events are enabled automatically after successful login.** You don't need to send a separate action to start receiving events — they begin flowing immediately based on your user's `read` permissions in `manager.conf`.
+
+However, you can control event flow with the optional `Events` action:
+
+```
+Action: Events
+EventMask: on
+
+```
+
+Or disable events:
+
+```
+Action: Events
+EventMask: off
+
+```
+
+You can also filter specific event types:
+
+```
+Action: Events
+EventMask: system,call
+
+```
+
+> **In practice:** Most applications leave events enabled (the default after login) and simply parse the incoming stream. The `Events` action is useful if you want to temporarily pause event flow or filter to specific event classes.
+
 ### Setup
 
 You'll need two things running at the same time:
