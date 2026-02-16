@@ -17,3 +17,4 @@ It turns an ordinary computer into a communications server, supporting Voice ove
 | Guide | Description |
 | ----- | ----------- |
 | [Ubuntu Setup](ubuntu-setup.md) | Install and configure Asterisk on Ubuntu 24.04 LTS from source |
+| [AMI Basics](ami-basics.md) | Introduction to the Asterisk Manager Interface (AMI) — connect, send actions, and monitor events |
