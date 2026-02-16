@@ -147,7 +147,15 @@ You should receive:
 ```
 Response: Success
 Message: Authentication accepted
+
+Event: FullyBooted
+Privilege: system,all
+Uptime: 133587
+LastReload: 133587
+Status: Fully Booted
 ```
+
+The `FullyBooted` event is sent immediately after login, confirming that Asterisk is up and ready.
 
 If you see `Response: Error`, double-check the username, secret, and `permit` ACL in `manager.conf`.
 
@@ -168,11 +176,12 @@ Example response:
 
 ```
 Response: Success
-CoreStartupDate: 2025-01-15
-CoreStartupTime: 10:30:45
+CoreStartupDate: 2026-02-14
+CoreStartupTime: 21:22:24
+CoreReloadDate: 2026-02-14
+CoreReloadTime: 21:22:24
 CoreCurrentCalls: 0
-CoreReloadDate: 2025-01-15
-CoreReloadTime: 10:30:45
+CoreProcessedCalls: 1
 ```
 
 ### CoreSettings
@@ -188,15 +197,18 @@ Example response:
 
 ```
 Response: Success
-AsteriskVersion: 22.2.0
-AGIVersion: 22.2.0
 AMIversion: 11.0.0
-SystemName: asterisk-server
-MaxCalls: 0
-MaxLoadAvg: 0.000000
-MaxFileHandles: 0
-RunUser: asterisk
-RunGroup: asterisk
+AsteriskVersion: 22.8.2
+SystemName:
+CoreMaxCalls: 0
+CoreMaxLoadAvg: 0.000000
+CoreRunUser: asterisk
+CoreRunGroup: asterisk
+CoreMaxFilehandles: 0
+CoreRealTimeEnabled: No
+CoreCDRenabled: Yes
+CoreHTTPenabled: No
+SoundsSearchCustomDir: No
 ```
 
 ### CoreShowChannels
@@ -213,7 +225,10 @@ If no calls are active, you'll see:
 ```
 Response: Success
 EventList: start
+Message: Channels will follow
+
 Event: CoreShowChannelsComplete
+EventList: Complete
 ListItems: 0
 ```
 
@@ -231,23 +246,34 @@ Action: PJSIPShowEndpoints
 Example response (one event per endpoint):
 
 ```
+Response: Success
+EventList: start
+Message: A listing of Endpoints follows, presented as EndpointList events
+
 Event: EndpointList
 ObjectType: endpoint
 ObjectName: 1001
 Transport:
 Aor: 1001
+Auths: auth1001
+OutboundAuths:
+Contacts: 1001/sip:1001@192.168.8.184:52325;transport=udp,
 DeviceState: Not in use
-ActiveChannels:
+ActiveChannels: 0
 
 Event: EndpointList
 ObjectType: endpoint
 ObjectName: 1002
 Transport:
 Aor: 1002
-DeviceState: Unavailable
-ActiveChannels:
+Auths: auth1002
+OutboundAuths:
+Contacts: 1002/sip:1002@192.168.8.185:59237;transport=udp,1002/sip:1002@192.168.8.172:5060,
+DeviceState: Not in use
+ActiveChannels: 0
 
 Event: EndpointListComplete
+EventList: Complete
 ListItems: 2
 ```
 
@@ -266,8 +292,12 @@ The response and any related events will include the same `ActionID`:
 ```
 Response: Success
 ActionID: my-request-123
+CoreStartupDate: 2026-02-14
+CoreStartupTime: 21:22:24
+CoreReloadDate: 2026-02-14
+CoreReloadTime: 21:22:24
 CoreCurrentCalls: 0
-...
+CoreProcessedCalls: 1
 ```
 
 ## Step 7: Watch Live Events (Hands-On Demo)
