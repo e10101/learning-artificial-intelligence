@@ -122,7 +122,7 @@ nc 192.168.1.100 5038
 You should see a banner like:
 
 ```
-Asterisk Call Manager/10.0.0
+Asterisk Call Manager/11.0.0
 ```
 
 This confirms AMI is running and accepting connections. You can now type actions directly.
@@ -190,7 +190,7 @@ Example response:
 Response: Success
 AsteriskVersion: 22.2.0
 AGIVersion: 22.2.0
-AMIversion: 10.0.0
+AMIversion: 11.0.0
 SystemName: asterisk-server
 MaxCalls: 0
 MaxLoadAvg: 0.000000
