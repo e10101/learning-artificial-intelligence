@@ -98,19 +98,21 @@ You should see output like:
 ```
 HTTP Server Status:
 Prefix: /asterisk
-Server: Asterisk
+Server: Asterisk/22.8.2
 Server Enabled and Bound to 0.0.0.0:8088
 
 Enabled URI's:
-/asterisk/httpstatus => Asterisk HTTP General Status
-/asterisk/phoneprov/... => Asterisk HTTP Phone Provisioning Tool
-/asterisk/amanager => HTML Manager Event Interface
-/asterisk/arawman => Raw HTTP Manager Event Interface
-/asterisk/amxml => XML HTTP Manager Event Interface
-/asterisk/mxml => XML HTTP Manager Event Interface
+/asterisk/amanager => HTML Manager Event Interface w/Digest authentication
+/asterisk/arawman => Raw HTTP Manager Event Interface w/Digest authentication
+/asterisk/manager => HTML Manager Event Interface
 /asterisk/rawman => Raw HTTP Manager Interface
-/asterisk/manager => HTML Manager Interface
-/asterisk/static/... => Asterisk HTTP Static Delivery
+/asterisk/amxml => XML Manager Event Interface w/Digest authentication
+/asterisk/mxml => XML Manager Event Interface
+/asterisk/media/... => Media over Websocket
+/asterisk/ws => Asterisk HTTP WebSocket
+
+Enabled Redirects:
+  None.
 ```
 
 The key endpoints for AMI are:
@@ -120,33 +122,41 @@ The key endpoints for AMI are:
 | `/asterisk/rawman` | Plain text | Raw AMI responses (same format as TCP) |
 | `/asterisk/mxml` | XML | AMI responses in XML format |
 | `/asterisk/manager` | HTML | Web-based manager interface (browser) |
+| `/asterisk/arawman` | Plain text | Raw AMI with Digest authentication |
+| `/asterisk/amxml` | XML | XML format with Digest authentication |
+| `/asterisk/amanager` | HTML | HTML interface with Digest authentication |
+| `/asterisk/ws` | WebSocket | WebSocket interface for real-time communication |
 
 ## Step 4: Test HTTP Access
 
-From your client, test basic connectivity:
+From your client, test basic connectivity by accessing the HTML manager interface:
 
 ```bash
-curl http://<server_ip>:8088/asterisk/httpstatus
+curl http://<server_ip>:8088/asterisk/manager
 ```
 
 For example:
 
 ```bash
-curl http://192.168.1.100:8088/asterisk/httpstatus
+curl http://192.168.8.230:8088/asterisk/manager
 ```
 
-You should see:
+You should see an HTML login page:
 
-```
-<!DOCTYPE html>
+```html
 <html>
+<head><title>Asterisk&trade; Manager Interface</title></head>
+<body>
 ...
-<title>Asterisk HTTP Status</title>
+<form method="post" action="manager">
 ...
+</form>
+...
+</body>
 </html>
 ```
 
-This confirms the HTTP server is reachable.
+This confirms the HTTP server is reachable and AMI web interface is enabled.
 
 ## Step 5: Send AMI Actions via HTTP
 
@@ -162,7 +172,7 @@ AMI over HTTP supports two authentication approaches:
 Send credentials with each request (simple but less secure):
 
 ```bash
-curl "http://192.168.1.100:8088/asterisk/rawman?action=login&username=admin&secret=mysecretpassword"
+curl "http://192.168.8.230:8088/asterisk/rawman?action=login&username=admin&secret=mysecretpassword"
 ```
 
 Response:
@@ -175,7 +185,7 @@ Message: Authentication accepted
 Now send an action in the same pattern:
 
 ```bash
-curl "http://192.168.1.100:8088/asterisk/rawman?action=corestatus&username=admin&secret=mysecretpassword"
+curl "http://192.168.8.230:8088/asterisk/rawman?action=corestatus&username=admin&secret=mysecretpassword"
 ```
 
 Response:
@@ -195,13 +205,13 @@ CoreProcessedCalls: 5
 Login once and save the session cookie:
 
 ```bash
-curl -c cookies.txt "http://192.168.1.100:8088/asterisk/rawman?action=login&username=admin&secret=mysecretpassword"
+curl -c cookies.txt "http://192.168.8.230:8088/asterisk/rawman?action=login&username=admin&secret=mysecretpassword"
 ```
 
 The `-c cookies.txt` flag saves the session cookie. Now use it for subsequent requests:
 
 ```bash
-curl -b cookies.txt "http://192.168.1.100:8088/asterisk/rawman?action=corestatus"
+curl -b cookies.txt "http://192.168.8.230:8088/asterisk/rawman?action=corestatus"
 ```
 
 Response:
@@ -219,7 +229,7 @@ CoreProcessedCalls: 5
 When done, logoff:
 
 ```bash
-curl -b cookies.txt "http://192.168.1.100:8088/asterisk/rawman?action=logoff"
+curl -b cookies.txt "http://192.168.8.230:8088/asterisk/rawman?action=logoff"
 ```
 
 Response:
@@ -234,31 +244,31 @@ Message: Thanks for all the fish.
 ### CoreStatus
 
 ```bash
-curl -b cookies.txt "http://192.168.1.100:8088/asterisk/rawman?action=corestatus"
+curl -b cookies.txt "http://192.168.8.230:8088/asterisk/rawman?action=corestatus"
 ```
 
 ### CoreSettings
 
 ```bash
-curl -b cookies.txt "http://192.168.1.100:8088/asterisk/rawman?action=coresettings"
+curl -b cookies.txt "http://192.168.8.230:8088/asterisk/rawman?action=coresettings"
 ```
 
 ### CoreShowChannels
 
 ```bash
-curl -b cookies.txt "http://192.168.1.100:8088/asterisk/rawman?action=coreshowchannels"
+curl -b cookies.txt "http://192.168.8.230:8088/asterisk/rawman?action=coreshowchannels"
 ```
 
 ### PJSIPShowEndpoints
 
 ```bash
-curl -b cookies.txt "http://192.168.1.100:8088/asterisk/rawman?action=pjsipshowendpoints"
+curl -b cookies.txt "http://192.168.8.230:8088/asterisk/rawman?action=pjsipshowendpoints"
 ```
 
 ### Ping (Keep-Alive)
 
 ```bash
-curl -b cookies.txt "http://192.168.1.100:8088/asterisk/rawman?action=ping"
+curl -b cookies.txt "http://192.168.8.230:8088/asterisk/rawman?action=ping"
 ```
 
 Response:
@@ -274,7 +284,7 @@ Timestamp: 1739600000.000000
 Add `actionid` to correlate responses:
 
 ```bash
-curl -b cookies.txt "http://192.168.1.100:8088/asterisk/rawman?action=corestatus&actionid=req-001"
+curl -b cookies.txt "http://192.168.8.230:8088/asterisk/rawman?action=corestatus&actionid=req-001"
 ```
 
 Response includes the ActionID:
@@ -291,7 +301,7 @@ CoreStartupDate: 2026-02-14
 For easier parsing in applications, use the XML endpoint:
 
 ```bash
-curl -b cookies.txt "http://192.168.1.100:8088/asterisk/mxml?action=corestatus"
+curl -b cookies.txt "http://192.168.8.230:8088/asterisk/mxml?action=corestatus"
 ```
 
 Response:
@@ -313,13 +323,13 @@ Some actions require additional parameters. Pass them as query parameters:
 ### Get a Channel Variable
 
 ```bash
-curl -b cookies.txt "http://192.168.1.100:8088/asterisk/rawman?action=getvar&channel=PJSIP/1001-00000001&variable=CALLERID(num)"
+curl -b cookies.txt "http://192.168.8.230:8088/asterisk/rawman?action=getvar&channel=PJSIP/1001-00000001&variable=CALLERID(num)"
 ```
 
 ### Execute a CLI Command
 
 ```bash
-curl -b cookies.txt "http://192.168.1.100:8088/asterisk/rawman?action=command&command=core%20show%20channels"
+curl -b cookies.txt "http://192.168.8.230:8088/asterisk/rawman?action=command&command=core%20show%20channels"
 ```
 
 > **Note:** URL-encode spaces and special characters. `core show channels` becomes `core%20show%20channels`.
@@ -327,7 +337,7 @@ curl -b cookies.txt "http://192.168.1.100:8088/asterisk/rawman?action=command&co
 ### Originate a Call
 
 ```bash
-curl -b cookies.txt "http://192.168.1.100:8088/asterisk/rawman?action=originate&channel=PJSIP/1001&exten=9999&context=internal&priority=1&callerid=Test<1000>"
+curl -b cookies.txt "http://192.168.8.230:8088/asterisk/rawman?action=originate&channel=PJSIP/1001&exten=9999&context=internal&priority=1&callerid=Test<1000>"
 ```
 
 This originates a call to extension 1001, and when answered, connects them to the echo test (9999).
@@ -337,7 +347,7 @@ This originates a call to extension 1001, and when answered, connects them to th
 HTTP-based AMI does support event streaming through the `arawman` or `amxml` endpoints, which use long-polling or chunked responses:
 
 ```bash
-curl -b cookies.txt "http://192.168.1.100:8088/asterisk/arawman?action=waitevent"
+curl -b cookies.txt "http://192.168.8.230:8088/asterisk/arawman?action=waitevent"
 ```
 
 However, this approach is less efficient than TCP for continuous monitoring because:
