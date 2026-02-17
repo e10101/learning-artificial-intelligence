@@ -334,36 +334,45 @@ curl -b cookies.txt "http://192.168.8.230:8088/asterisk/rawman?action=command&co
 ### Originate a Call
 
 ```bash
-curl -b cookies.txt "http://192.168.8.230:8088/asterisk/rawman?action=originate&channel=PJSIP/1002&exten=7777&context=internal&priority=1&callerid=Test<1000>"
+curl -b cookies.txt "http://192.168.8.230:8088/asterisk/rawman?action=originate&channel=PJSIP/1002&exten=7777&context=internal&priority=1&callerid=Test%3C1000%3E"
 ```
 
 This originates a call to extension 1002, and when answered, connects them to extension 7777.
 
 ## Step 9: Event Streaming via HTTP
 
-HTTP-based AMI does support event streaming through the `waitevent` action, which uses long-polling:
+HTTP-based AMI supports a `waitevent` action, but it uses **long-polling** — not true streaming. It waits for a single event (or until the timeout expires), returns the result, and closes the connection. To receive the next event, you must send another request.
 
 **Using session cookies (`rawman`):**
 
 ```bash
-curl -b cookies.txt "http://192.168.8.230:8088/asterisk/rawman?action=waitevent"
+curl -b cookies.txt "http://192.168.8.230:8088/asterisk/rawman?action=waitevent&timeout=30"
 ```
 
 **Using Digest authentication (`arawman`):**
 
 ```bash
-curl --digest -u admin:mysecretpassword "http://192.168.8.230:8088/asterisk/arawman?action=waitevent"
+curl --digest -u admin:mysecretpassword "http://192.168.8.230:8088/asterisk/arawman?action=waitevent&timeout=30"
+```
+
+If no event occurs within the timeout, you'll get:
+
+```
+Response: Success
+Message: Waiting for Event completed.
+
+Event: WaitEventComplete
 ```
 
 > **Important:** Don't mix authentication methods. Use cookies with `rawman` endpoints, and Digest auth with `arawman` endpoints.
 
-However, this approach is less efficient than TCP for continuous monitoring because:
+This is **not suitable for continuous event monitoring** because:
 
-- Each event requires a new HTTP request (long-polling)
-- Higher overhead compared to a persistent TCP connection
-- Potential for missed events between requests
+- Each request returns at most one event, then the connection closes
+- You must loop and send a new request after each response
+- Events can be missed between requests
 
-**Recommendation:** Use HTTP for request-response queries. Use TCP (port 5038) for real-time event streaming.
+**Recommendation:** Use HTTP for request-response queries. Use TCP (port 5038) for real-time event streaming (see [AMI Basics](ami-basics.md)).
 
 ## Step 10: Security Best Practices
 
@@ -398,7 +407,7 @@ bindaddr = 127.0.0.1
 Use firewall rules to limit access to the HTTP port:
 
 ```bash
-sudo ufw allow from 192.168.1.0/24 to any port 8088 proto tcp
+sudo ufw allow from 192.168.8.0/24 to any port 8088 proto tcp
 ```
 
 ### Separate Users for HTTP
