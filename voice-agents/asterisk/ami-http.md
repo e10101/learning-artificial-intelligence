@@ -164,28 +164,19 @@ This confirms the HTTP server is reachable and AMI web interface is enabled.
 
 AMI over HTTP supports two authentication approaches:
 
-1. **Query parameters** — Pass `action`, `username`, and `secret` in the URL
-2. **Session cookies** — Login once, then use the session cookie for subsequent requests
+| Method | Endpoints | How to Use |
+| ------ | --------- | ---------- |
+| **Session cookies** | `rawman`, `mxml`, `manager` | Login once, save cookie, reuse for subsequent requests |
+| **Digest authentication** | `arawman`, `amxml`, `amanager` | Pass credentials with each request using `--digest -u user:pass` |
 
-### Method 1: Single Request with Credentials
+> **Important:** Don't mix these methods. Cookies don't work with Digest endpoints, and Digest auth doesn't work with non-Digest endpoints.
 
-Send credentials with each request (simple but less secure):
+### Method 1: Digest Authentication (Single Request)
 
-```bash
-curl "http://192.168.8.230:8088/asterisk/rawman?action=login&username=admin&secret=mysecretpassword"
-```
-
-Response:
-
-```
-Response: Success
-Message: Authentication accepted
-```
-
-Now send an action in the same pattern:
+Use the `/asterisk/arawman` endpoint with HTTP Digest authentication for single requests:
 
 ```bash
-curl "http://192.168.8.230:8088/asterisk/rawman?action=corestatus&username=admin&secret=mysecretpassword"
+curl --digest -u admin:mysecretpassword "http://192.168.8.230:8088/asterisk/arawman?action=corestatus"
 ```
 
 Response:
@@ -199,6 +190,10 @@ CoreReloadTime: 21:22:24
 CoreCurrentCalls: 0
 CoreProcessedCalls: 5
 ```
+
+The `--digest` flag tells curl to use HTTP Digest authentication, which is more secure than Basic auth as it doesn't send the password in plain text.
+
+> **Note:** The `/asterisk/rawman` endpoint requires session-based authentication (cookies). Passing `username` and `secret` as query parameters only works for the `login` action — subsequent actions will return "Permission denied".
 
 ### Method 2: Session-Based Authentication (Recommended)
 
@@ -337,18 +332,28 @@ curl -b cookies.txt "http://192.168.8.230:8088/asterisk/rawman?action=command&co
 ### Originate a Call
 
 ```bash
-curl -b cookies.txt "http://192.168.8.230:8088/asterisk/rawman?action=originate&channel=PJSIP/1001&exten=9999&context=internal&priority=1&callerid=Test<1000>"
+curl -b cookies.txt "http://192.168.8.230:8088/asterisk/rawman?action=originate&channel=PJSIP/1002&exten=7777&context=internal&priority=1&callerid=Test<1000>"
 ```
 
-This originates a call to extension 1001, and when answered, connects them to the echo test (9999).
+This originates a call to extension 1002, and when answered, connects them to extension 7777.
 
 ## Step 9: Event Streaming via HTTP
 
-HTTP-based AMI does support event streaming through the `arawman` or `amxml` endpoints, which use long-polling or chunked responses:
+HTTP-based AMI does support event streaming through the `waitevent` action, which uses long-polling:
+
+**Using session cookies (`rawman`):**
 
 ```bash
-curl -b cookies.txt "http://192.168.8.230:8088/asterisk/arawman?action=waitevent"
+curl -b cookies.txt "http://192.168.8.230:8088/asterisk/rawman?action=waitevent"
 ```
+
+**Using Digest authentication (`arawman`):**
+
+```bash
+curl --digest -u admin:mysecretpassword "http://192.168.8.230:8088/asterisk/arawman?action=waitevent"
+```
+
+> **Important:** Don't mix authentication methods. Use cookies with `rawman` endpoints, and Digest auth with `arawman` endpoints.
 
 However, this approach is less efficient than TCP for continuous monitoring because:
 
