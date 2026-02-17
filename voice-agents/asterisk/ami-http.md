@@ -315,10 +315,10 @@ XML format is useful when integrating with applications that have XML parsers.
 
 Some actions require additional parameters. Pass them as query parameters:
 
-### Get a Channel Variable
+### Get a Global Variable
 
 ```bash
-curl -b cookies.txt "http://192.168.8.230:8088/asterisk/rawman?action=getvar&channel=PJSIP/1001-00000001&variable=CALLERID(num)"
+curl -b cookies.txt "http://192.168.8.230:8088/asterisk/rawman?action=getvar&variable=EPOCH"
 ```
 
 ### Execute a CLI Command
