@@ -1,6 +1,6 @@
 <div style="width: 100%; margin: 0 auto;">
     <a href="https://github.com/e10101/learning-artificial-intelligence">
-        <img src="../../assets/banner.svg" alt="Learning Operations Research" style="width: 100%; height: auto; display: block;">
+        <img src="../../assets/banner.svg" alt="Learning Artificial Intelligence" style="width: 100%; height: auto; display: block;">
     </a>
 </div>
 
