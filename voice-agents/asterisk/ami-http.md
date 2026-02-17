@@ -70,11 +70,13 @@ In the `[general]` section, add:
 [general]
 enabled = yes
 webenabled = yes
+httptimeout = 300
 port = 5038
 bindaddr = 0.0.0.0
 ```
 
-The key addition is `webenabled = yes`, which exposes AMI through the HTTP server.
+- `webenabled = yes` — Exposes AMI through the HTTP server.
+- `httptimeout = 300` — Sets the HTTP session timeout to 5 minutes (default is 60 seconds), giving you enough time to work through the examples.
 
 Your AMI user (e.g., `[admin]`) should already be configured with appropriate permissions from the TCP setup.
 
